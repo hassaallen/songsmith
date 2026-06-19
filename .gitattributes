@@ -1,0 +1,4 @@
+# Force Unix line endings for everything deployed to the Linux host.
+# CRLF in .cpanel.yml or PHP can break deployment / execution.
+* text=auto eol=lf
+*.png binary
