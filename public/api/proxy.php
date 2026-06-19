@@ -21,7 +21,7 @@ function fetch_url(string $url): array
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 12,
         CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_USERAGENT      => 'Songsmith/1.0 (+songs.hassaallen.net)',
+        CURLOPT_USERAGENT      => 'Songsmith/1.0 (+songwriting.hassaallen.net)',
         CURLOPT_HTTPHEADER     => ['Accept: application/json'],
     ]);
     $body = curl_exec($ch);

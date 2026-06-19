@@ -10,7 +10,7 @@ devices via a small PHP + MySQL backend.
 ## Stack
 - **Frontend:** buildless HTML/CSS/JS PWA (no Node build step). Served as static files.
 - **Backend:** PHP 8.3 REST API (`/api/*.php`), PDO + MySQL.
-- **Hosting:** cPanel at hassaallen.net, subdomain `songs.hassaallen.net`.
+- **Hosting:** cPanel at hassaallen.net, subdomain `songwriting.hassaallen.net`.
 - **External data (proxied server-side):** Datamuse, PoetryDB, Free Dictionary API, Gutendex.
 
 ## Layout of this repo
