@@ -1,0 +1,9 @@
+# Real credentials never go in git
+public/api/config.php
+
+# OS / editor cruft
+Thumbs.db
+.DS_Store
+*.log
+.vscode/
+.idea/

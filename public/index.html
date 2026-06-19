@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1b1c2e" />
+  <title>Songsmith</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+
+  <!-- Login -->
+  <section id="login-view" class="login-view hidden">
+    <form id="login-form" class="login-card">
+      <h1>Songsmith</h1>
+      <p class="muted">Sign in to your workspace.</p>
+      <input id="login-username" type="text" placeholder="Username" autocomplete="username" required />
+      <input id="login-password" type="password" placeholder="Password" autocomplete="current-password" required />
+      <button type="submit">Sign in</button>
+      <p id="login-error" class="error hidden"></p>
+    </form>
+  </section>
+
+  <!-- App -->
+  <div id="app-view" class="app-view hidden">
+    <header class="topbar">
+      <div class="topbar-left">
+        <strong class="brand">Songsmith</strong>
+        <input id="draft-title" class="draft-title" placeholder="Untitled" />
+      </div>
+      <div class="topbar-right">
+        <select id="draft-select" class="draft-select" title="Your drafts"></select>
+        <button id="new-draft-btn" class="icon-btn" title="New song">+ New</button>
+        <span id="save-status" class="save-status muted">saved</span>
+        <button id="logout-btn" class="icon-btn" title="Sign out">Sign out</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <!-- Sources -->
+      <aside class="sources-pane">
+        <div class="pane-head">
+          <span>Sources</span>
+          <div class="pane-head-actions">
+            <select id="source-mode" class="source-mode">
+              <option value="poetry_random">Random poems</option>
+              <option value="my_texts">My texts</option>
+            </select>
+            <button id="shuffle-btn" class="icon-btn" title="Shuffle">Shuffle</button>
+          </div>
+        </div>
+        <div id="source-list" class="source-list"></div>
+      </aside>
+
+      <!-- Scratchpad -->
+      <section class="scratch-pane">
+        <div id="scratchpad" class="scratchpad" contenteditable="true" spellcheck="true"
+             data-placeholder="Drag or tap a phrase from the left to bring it in. Tap any word for rhymes &amp; synonyms."></div>
+
+        <!-- Ambient "what follows" strip -->
+        <div class="follow-strip" id="follow-strip">
+          <span class="follow-label">next&nbsp;&rsaquo;</span>
+          <div id="follow-chips" class="follow-chips"></div>
+        </div>
+      </section>
+
+      <!-- Pinned word-tools panel (desktop, when pinned) -->
+      <aside id="tools-panel" class="tools-panel hidden"></aside>
+    </main>
+
+    <!-- Floating word-tools popup (Option B) -->
+    <div id="word-popup" class="word-popup hidden"></div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

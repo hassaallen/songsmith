@@ -1,0 +1,9 @@
+---
+deployment:
+  tasks:
+    # Copies the web-served files from the repo's public/ folder into the
+    # subdomain's document root. Fill in DEPLOYPATH with the document root path
+    # cPanel showed when you created songs.hassaallen.net (the trailing slash matters).
+    # Example: /home/hassaall/songs.hassaallen.net/
+    - export DEPLOYPATH=/home/USERNAME/songs.hassaallen.net/
+    - /bin/cp -R public/. $DEPLOYPATH

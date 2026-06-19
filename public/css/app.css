@@ -1,0 +1,150 @@
+:root {
+  --bg: #f4f3ee;
+  --surface: #ffffff;
+  --surface-2: #ecebe4;
+  --ink: #23232a;
+  --ink-soft: #6a6a72;
+  --line: rgba(0,0,0,0.12);
+  --accent: #534ab7;
+  --accent-soft: #eeedfe;
+  --radius: 10px;
+  --radius-lg: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1c2e;
+    --surface: #25263a;
+    --surface-2: #2f3048;
+    --ink: #e9e9f2;
+    --ink-soft: #a6a6bb;
+    --line: rgba(255,255,255,0.14);
+    --accent: #afa9ec;
+    --accent-soft: #38356b;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+.hidden { display: none !important; }
+.muted { color: var(--ink-soft); }
+.error { color: #c0392b; font-size: 14px; }
+
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+/* ---------- Login ---------- */
+.login-view { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+.login-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  padding: 2rem; width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 12px;
+}
+.login-card h1 { margin: 0; font-size: 26px; font-weight: 600; }
+.login-card input {
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 11px 12px; outline: none;
+}
+.login-card input:focus { border-color: var(--accent); }
+.login-card button {
+  background: var(--accent); color: #fff; border: none; border-radius: var(--radius);
+  padding: 11px; font-weight: 500;
+}
+
+/* ---------- App shell ---------- */
+.app-view { display: flex; flex-direction: column; height: 100vh; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.topbar-left, .topbar-right { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand { color: var(--accent); }
+.draft-title {
+  background: transparent; border: none; border-bottom: 1px dashed transparent;
+  font-size: 16px; font-weight: 500; padding: 4px 2px; min-width: 120px; max-width: 40vw; outline: none;
+}
+.draft-title:focus { border-bottom-color: var(--line); }
+.draft-select, .source-mode {
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 6px 8px; max-width: 200px;
+}
+.icon-btn {
+  background: transparent; border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 6px 10px; color: var(--ink-soft);
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--ink); }
+.save-status { font-size: 13px; }
+
+/* ---------- Workspace ---------- */
+.workspace { flex: 1; display: grid; grid-template-columns: minmax(200px, 280px) 1fr; min-height: 0; }
+.workspace.pinned { grid-template-columns: minmax(200px, 260px) 1fr minmax(220px, 300px); }
+
+.sources-pane, .tools-panel {
+  background: var(--surface); border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.tools-panel { border-right: none; border-left: 1px solid var(--line); padding: 12px; overflow-y: auto; }
+.pane-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px; border-bottom: 1px solid var(--line); font-weight: 500;
+}
+.pane-head-actions { display: flex; align-items: center; gap: 6px; }
+.source-list { overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.source-line {
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 9px 11px; font-size: 14px; line-height: 1.45; cursor: grab; user-select: none;
+}
+.source-line:hover { border-color: var(--accent); }
+.source-line .src-meta { display: block; font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
+
+/* ---------- Scratchpad ---------- */
+.scratch-pane { display: flex; flex-direction: column; min-height: 0; }
+.scratchpad {
+  flex: 1; overflow-y: auto; padding: 22px clamp(16px, 5vw, 60px);
+  font-size: 19px; line-height: 1.9; outline: none; white-space: pre-wrap; word-break: break-word;
+}
+.scratchpad:empty:before { content: attr(data-placeholder); color: var(--ink-soft); }
+.scratchpad ::selection { background: var(--accent-soft); }
+
+.follow-strip {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  border-top: 1px solid var(--line); background: var(--surface); min-height: 46px; overflow-x: auto;
+}
+.follow-label { font-size: 12px; color: var(--ink-soft); flex: none; }
+.follow-chips { display: flex; gap: 6px; }
+.chip {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 999px;
+  padding: 5px 11px; font-size: 14px; white-space: nowrap; flex: none;
+}
+.chip:hover { background: var(--accent-soft); border-color: var(--accent); }
+
+/* ---------- Word tools (popup + panel share styling) ---------- */
+.word-popup {
+  position: absolute; z-index: 50; max-width: 280px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.18); padding: 12px;
+}
+.tools-block { margin-bottom: 10px; }
+.tools-block:last-child { margin-bottom: 0; }
+.tools-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-weight: 500; margin-bottom: 6px;
+}
+.tools-head .word { color: var(--accent); }
+.tools-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); margin: 8px 0 4px; }
+.tools-words { display: flex; flex-wrap: wrap; gap: 5px; }
+.def { font-size: 14px; line-height: 1.5; }
+.pin-toggle { font-size: 12px; background: transparent; border: 1px solid var(--line); border-radius: var(--radius); padding: 3px 8px; }
+
+/* ---------- Responsive: tablet / phone stack ---------- */
+@media (max-width: 760px) {
+  .workspace, .workspace.pinned { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .sources-pane { border-right: none; border-bottom: 1px solid var(--line); max-height: 32vh; }
+  .tools-panel { display: none !important; }
+  .scratchpad { font-size: 18px; padding: 16px; }
+}
