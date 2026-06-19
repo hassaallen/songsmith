@@ -1,6 +1,6 @@
 <?php
 // ONE-SHOT user creation utility. Run from a browser once, then DELETE this file.
-// Usage:  songs.hassaallen.net/api/make_user.php?username=neil&password=SECRET&name=Neil
+// Usage:  songwriting.hassaallen.net/api/make_user.php?username=neil&password=SECRET&name=Neil
 //
 // Safety: refuses to run if any users already exist UNLESS you pass &force=1.
 // This prevents it being left live as an open account-creation hole.
