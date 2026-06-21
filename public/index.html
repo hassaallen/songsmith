@@ -48,6 +48,7 @@
               <option value="poetry_random">Random poems</option>
               <option value="my_texts">My texts</option>
             </select>
+            <button id="add-text-btn" class="icon-btn" title="Import your own text">+ Text</button>
             <button id="shuffle-btn" class="icon-btn" title="Shuffle">Shuffle</button>
           </div>
         </div>
@@ -57,7 +58,7 @@
       <!-- Scratchpad -->
       <section class="scratch-pane">
         <div id="scratchpad" class="scratchpad" contenteditable="true" spellcheck="true"
-             data-placeholder="Drag or tap a phrase from the left to bring it in. Tap any word for rhymes &amp; synonyms."></div>
+             data-placeholder="Tap or drag a phrase to bring it in. Tap any word for rhymes &amp; synonyms."></div>
 
         <!-- Ambient "what follows" strip -->
         <div class="follow-strip" id="follow-strip">
@@ -72,6 +73,22 @@
 
     <!-- Floating word-tools popup (Option B) -->
     <div id="word-popup" class="word-popup hidden"></div>
+
+    <!-- Import-your-own-text modal -->
+    <div id="text-modal" class="modal hidden">
+      <div class="modal-card">
+        <h2>Import a text</h2>
+        <p class="muted">Paste anything — lyrics, a poem, a chapter, an article, your own writing. It becomes cut-up source material.</p>
+        <input id="text-title" placeholder="Title (e.g. On the Road — Kerouac)" />
+        <input id="text-author" placeholder="Author / source (optional)" />
+        <textarea id="text-body" rows="10" placeholder="Paste your text here…"></textarea>
+        <p id="text-error" class="error hidden"></p>
+        <div class="modal-actions">
+          <button id="text-cancel" class="icon-btn">Cancel</button>
+          <button id="text-save" class="primary-btn">Save text</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="js/api.js"></script>

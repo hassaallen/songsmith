@@ -11,6 +11,9 @@
     newDraftBtn: $('new-draft-btn'), saveStatus: $('save-status'),
     logoutBtn: $('logout-btn'),
     sourceMode: $('source-mode'), shuffleBtn: $('shuffle-btn'), sourceList: $('source-list'),
+    addTextBtn: $('add-text-btn'),
+    textModal: $('text-modal'), textTitle: $('text-title'), textAuthor: $('text-author'),
+    textBody: $('text-body'), textSave: $('text-save'), textCancel: $('text-cancel'), textError: $('text-error'),
     scratchpad: $('scratchpad'), followChips: $('follow-chips'),
     wordPopup: $('word-popup'), toolsPanel: $('tools-panel'),
     workspace: document.querySelector('.workspace'),
@@ -143,6 +146,35 @@
   el.sourceMode.addEventListener('change', loadSources);
   el.shuffleBtn.addEventListener('click', loadSources);
 
+  // Import-your-own-text modal
+  el.addTextBtn.addEventListener('click', () => {
+    el.textTitle.value = ''; el.textAuthor.value = ''; el.textBody.value = '';
+    el.textError.classList.add('hidden');
+    el.textModal.classList.remove('hidden');
+    el.textTitle.focus();
+  });
+  el.textCancel.addEventListener('click', () => el.textModal.classList.add('hidden'));
+  el.textModal.addEventListener('click', (e) => { if (e.target === el.textModal) el.textModal.classList.add('hidden'); });
+  el.textSave.addEventListener('click', async () => {
+    const body = el.textBody.value.trim();
+    if (!body) { el.textError.textContent = 'Paste some text first.'; el.textError.classList.remove('hidden'); return; }
+    el.textSave.disabled = true; el.textSave.textContent = 'Saving…';
+    try {
+      await API.createText({
+        title: el.textTitle.value.trim() || 'Untitled text',
+        author: el.textAuthor.value.trim(),
+        body,
+      });
+      el.textModal.classList.add('hidden');
+      el.sourceMode.value = 'my_texts';
+      await loadSources();
+    } catch (err) {
+      el.textError.textContent = err.message; el.textError.classList.remove('hidden');
+    } finally {
+      el.textSave.disabled = false; el.textSave.textContent = 'Save text';
+    }
+  });
+
   async function loadSources() {
     el.sourceList.innerHTML = '<p class="muted" style="padding:10px">Loading…</p>';
     try {
@@ -157,13 +189,13 @@
   }
 
   async function loadPoetryLines() {
-    const poems = await API.poetryRandom(6);
+    // Pull many poems but take only 1-2 lines from each, so the list spans
+    // lots of different poets instead of flooding with one repeated name.
+    const poems = await API.poetryRandom(25);
     const lines = [];
     poems.forEach((p) => {
-      (p.lines || []).forEach((ln) => {
-        const t = ln.trim();
-        if (t.length > 3) lines.push({ text: t, meta: `${p.author} — ${p.title}` });
-      });
+      const good = (p.lines || []).map((l) => l.trim()).filter((l) => l.length > 8);
+      shuffle(good).slice(0, 2).forEach((t) => lines.push({ text: t, meta: `${p.author} — ${p.title}` }));
     });
     renderSourceLines(shuffle(lines).slice(0, 40));
   }
@@ -171,7 +203,7 @@
   async function loadMyTextLines() {
     const { texts } = await API.listTexts();
     if (!texts.length) {
-      el.sourceList.innerHTML = '<p class="muted" style="padding:10px">No texts imported yet. (Phase 2 adds an import panel; for now they can be added via the backend.)</p>';
+      el.sourceList.innerHTML = '<p class="muted" style="padding:10px">No texts imported yet. Tap <strong>+ Text</strong> above to paste in lyrics, a poem, a chapter — anything — and cut it up.</p>';
       return;
     }
     // pull a random text's body and cut into lines/sentences

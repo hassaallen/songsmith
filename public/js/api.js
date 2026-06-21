@@ -31,10 +31,12 @@ const API = (() => {
 
     listTexts: ()          => req('texts.php'),
     getText:   (id)        => req('texts.php?id=' + id),
+    createText:(d)         => req('texts.php', { method: 'POST', body: JSON.stringify(d) }),
+    deleteText:(id)        => req('texts.php?id=' + id, { method: 'DELETE' }),
 
     // Proxy helpers
     datamuse: (params)     => req('proxy.php?service=datamuse&' + new URLSearchParams(params)),
     dictionary: (word)     => req('proxy.php?service=dictionary&word=' + encodeURIComponent(word)),
-    poetryRandom: (n = 6)  => req('proxy.php?service=poetry_random&n=' + n),
+    poetryRandom: (n = 25) => req('proxy.php?service=poetry_random&n=' + n),
   };
 })();

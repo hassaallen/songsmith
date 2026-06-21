@@ -75,7 +75,7 @@ switch ($service) {
         break;
 
     case 'poetry_random':
-        $n = max(1, min(10, (int) ($_GET['n'] ?? 1)));
+        $n = max(1, min(30, (int) ($_GET['n'] ?? 1)));
         passthrough_json(fetch_url("https://poetrydb.org/random/$n"));
         break;
 

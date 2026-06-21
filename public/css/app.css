@@ -141,6 +141,29 @@ button { cursor: pointer; }
 .def { font-size: 14px; line-height: 1.5; }
 .pin-toggle { font-size: 12px; background: transparent; border: 1px solid var(--line); border-radius: var(--radius); padding: 3px 8px; }
 
+/* ---------- Import-text modal ---------- */
+.modal {
+  position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+}
+.modal-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  padding: 1.5rem; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.modal-card h2 { margin: 0; font-size: 20px; font-weight: 600; }
+.modal-card input, .modal-card textarea {
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px 12px; outline: none; width: 100%; font-family: inherit; resize: vertical;
+}
+.modal-card input:focus, .modal-card textarea:focus { border-color: var(--accent); }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.primary-btn {
+  background: var(--accent); color: #fff; border: none; border-radius: var(--radius);
+  padding: 8px 16px; font-weight: 500;
+}
+.primary-btn:disabled { opacity: 0.6; }
+
 /* ---------- Responsive: tablet / phone stack ---------- */
 @media (max-width: 760px) {
   .workspace, .workspace.pinned { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
