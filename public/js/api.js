@@ -38,5 +38,10 @@ const API = (() => {
     datamuse: (params)     => req('proxy.php?service=datamuse&' + new URLSearchParams(params)),
     dictionary: (word)     => req('proxy.php?service=dictionary&word=' + encodeURIComponent(word)),
     poetryRandom: (n = 25) => req('proxy.php?service=poetry_random&n=' + n),
+
+    libraryManifest: ()    => req('library.php?action=manifest'),
+    libraryRandom: (n = 40, sources = []) =>
+      req('library.php?action=random&n=' + n +
+          (sources.length ? '&sources=' + encodeURIComponent(sources.join(',')) : '')),
   };
 })();

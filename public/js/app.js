@@ -11,7 +11,10 @@
     newDraftBtn: $('new-draft-btn'), saveStatus: $('save-status'),
     logoutBtn: $('logout-btn'),
     sourceMode: $('source-mode'), shuffleBtn: $('shuffle-btn'), sourceList: $('source-list'),
-    addTextBtn: $('add-text-btn'),
+    addTextBtn: $('add-text-btn'), filterBtn: $('filter-btn'),
+    filterModal: $('filter-modal'), filterList: $('filter-list'),
+    filterAll: $('filter-all'), filterNone: $('filter-none'),
+    filterApply: $('filter-apply'), filterCancel: $('filter-cancel'),
     textModal: $('text-modal'), textTitle: $('text-title'), textAuthor: $('text-author'),
     textBody: $('text-body'), textSave: $('text-save'), textCancel: $('text-cancel'), textError: $('text-error'),
     scratchpad: $('scratchpad'), followChips: $('follow-chips'),
@@ -24,7 +27,8 @@
   let saveTimer = null;
   let followTimer = null;
   let pinned = false;
-  const myTextsCache = [];
+  let selectedSources = [];   // empty = all sources
+  let libManifest = null;
 
   // ---------- Auth ----------
   async function init() {
@@ -175,17 +179,62 @@
     }
   });
 
+  // Source filter (which voices feed the Library blend)
+  el.filterBtn.addEventListener('click', openFilter);
+  el.filterCancel.addEventListener('click', () => el.filterModal.classList.add('hidden'));
+  el.filterModal.addEventListener('click', (e) => { if (e.target === el.filterModal) el.filterModal.classList.add('hidden'); });
+  el.filterAll.addEventListener('click', () => setAllChecks(true));
+  el.filterNone.addEventListener('click', () => setAllChecks(false));
+  el.filterApply.addEventListener('click', () => {
+    const boxes = [...el.filterList.querySelectorAll('input')];
+    const checked = boxes.filter((c) => c.checked).map((c) => c.value);
+    // all-or-none selected => everything (empty filter)
+    selectedSources = (checked.length === 0 || checked.length === boxes.length) ? [] : checked;
+    el.filterModal.classList.add('hidden');
+    el.sourceMode.value = 'library';
+    loadSources();
+  });
+
+  async function openFilter() {
+    if (!libManifest) {
+      try { libManifest = (await API.libraryManifest()).sources; }
+      catch (_) { libManifest = []; }
+    }
+    const groups = {};
+    libManifest.forEach((s) => { (groups[s.type] = groups[s.type] || []).push(s); });
+    const order = ['lyric', 'poem', 'prose', 'play', 'letters'];
+    const labels = { lyric: 'Lyrics', poem: 'Poems', prose: 'Prose', play: 'Plays', letters: 'Letters' };
+    let html = '';
+    order.filter((t) => groups[t]).forEach((t) => {
+      html += `<div class="filter-group-label">${labels[t] || t}</div>`;
+      groups[t].sort((a, b) => a.author.localeCompare(b.author)).forEach((s) => {
+        const on = selectedSources.length === 0 || selectedSources.includes(s.slug);
+        html += `<label class="filter-row"><input type="checkbox" value="${s.slug}" ${on ? 'checked' : ''}/> ` +
+                `<span>${escapeHtml(s.author)} <span class="muted">(${s.count})</span></span></label>`;
+      });
+    });
+    el.filterList.innerHTML = html || '<p class="muted">No sources installed.</p>';
+    el.filterModal.classList.remove('hidden');
+  }
+  function setAllChecks(v) {
+    el.filterList.querySelectorAll('input').forEach((c) => { c.checked = v; });
+  }
+
   async function loadSources() {
     el.sourceList.innerHTML = '<p class="muted" style="padding:10px">Loading…</p>';
     try {
-      if (el.sourceMode.value === 'my_texts') {
-        await loadMyTextLines();
-      } else {
-        await loadPoetryLines();
-      }
+      const mode = el.sourceMode.value;
+      if (mode === 'my_texts') await loadMyTextLines();
+      else if (mode === 'poetry_random') await loadPoetryLines();
+      else await loadLibraryLines();
     } catch (err) {
       el.sourceList.innerHTML = `<p class="error" style="padding:10px">${err.message}</p>`;
     }
+  }
+
+  async function loadLibraryLines() {
+    const { fragments } = await API.libraryRandom(40, selectedSources);
+    renderSourceLines(fragments.map((f) => ({ text: f.text, meta: f.author })));
   }
 
   async function loadPoetryLines() {

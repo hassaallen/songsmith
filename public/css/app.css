@@ -164,6 +164,14 @@ button { cursor: pointer; }
 }
 .primary-btn:disabled { opacity: 0.6; }
 
+/* ---------- Source filter ---------- */
+.filter-top { display: flex; gap: 8px; }
+.filter-list { max-height: 50vh; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; }
+.filter-group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); margin: 10px 0 4px; font-weight: 500; }
+.filter-group-label:first-child { margin-top: 0; }
+.filter-row { display: flex; align-items: center; gap: 8px; padding: 4px 2px; font-size: 14px; cursor: pointer; }
+.filter-row input { width: 16px; height: 16px; }
+
 /* ---------- Responsive: tablet / phone stack ---------- */
 @media (max-width: 760px) {
   .workspace, .workspace.pinned { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }

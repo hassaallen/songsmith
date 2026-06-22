@@ -45,9 +45,11 @@
           <span>Sources</span>
           <div class="pane-head-actions">
             <select id="source-mode" class="source-mode">
-              <option value="poetry_random">Random poems</option>
+              <option value="library">Library (all sources)</option>
+              <option value="poetry_random">Public-domain poems</option>
               <option value="my_texts">My texts</option>
             </select>
+            <button id="filter-btn" class="icon-btn" title="Choose which sources feed the blend">Filter</button>
             <button id="add-text-btn" class="icon-btn" title="Import your own text">+ Text</button>
             <button id="shuffle-btn" class="icon-btn" title="Shuffle">Shuffle</button>
           </div>
@@ -86,6 +88,23 @@
         <div class="modal-actions">
           <button id="text-cancel" class="icon-btn">Cancel</button>
           <button id="text-save" class="primary-btn">Save text</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Source-filter modal -->
+    <div id="filter-modal" class="modal hidden">
+      <div class="modal-card">
+        <h2>Choose sources</h2>
+        <p class="muted">Pick which voices feed the blend. Select all (or none) for everything.</p>
+        <div class="filter-top">
+          <button id="filter-all" class="icon-btn">Select all</button>
+          <button id="filter-none" class="icon-btn">Clear</button>
+        </div>
+        <div id="filter-list" class="filter-list"></div>
+        <div class="modal-actions">
+          <button id="filter-cancel" class="icon-btn">Cancel</button>
+          <button id="filter-apply" class="primary-btn">Apply</button>
         </div>
       </div>
     </div>
