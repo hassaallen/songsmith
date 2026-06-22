@@ -92,8 +92,13 @@ button { cursor: pointer; }
 .pane-head {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 10px 12px; border-bottom: 1px solid var(--line); font-weight: 500;
+  flex-wrap: wrap;
 }
-.pane-head-actions { display: flex; align-items: center; gap: 6px; }
+/* Controls drop to their own line(s) within the sources pane and wrap, so they
+   never overflow into the scratchpad on a narrow column. */
+.pane-head-actions { display: flex; align-items: center; gap: 6px; flex: 1 1 100%; flex-wrap: wrap; }
+.source-mode { max-width: 100%; }
+.sources-pane { overflow: hidden; }
 .source-list { overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .source-line {
   background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
