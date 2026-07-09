@@ -218,13 +218,40 @@ input, textarea { background: rgba(255,255,255,0.06); }
 .source-retry { margin-top: 8px; }
 
 /* ---------- Scratchpad ---------- */
-.scratch-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.scratch-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
 .scratchpad {
-  flex: 1; min-height: 0; overflow-y: auto; padding: 18px clamp(16px, 5vw, 40px);
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: 18px clamp(16px, 5vw, 40px) 18px calc(clamp(16px, 5vw, 40px) + 30px);
   font-size: 17px; line-height: 1.8; outline: none; white-space: pre-wrap; word-break: break-word;
 }
 .scratchpad:empty:before { content: attr(data-placeholder); color: var(--ink-faint); }
 .scratchpad ::selection { background: var(--pill-active-bg); }
+
+/* Syllable-count gutter — sits over the scratchpad's reserved left padding,
+   scrolls in sync via a transform driven by the pad's scroll position, and
+   never intercepts pointer events so taps still land on the text beneath. */
+.syllable-gutter {
+  position: absolute; top: 0; left: 0; bottom: 0; width: 26px;
+  overflow: hidden; pointer-events: none; z-index: 5;
+}
+.syllable-gutter.hidden { display: none; }
+#syllable-gutter-inner { position: relative; width: 100%; height: 100%; }
+.syll-num {
+  position: absolute; left: 4px; font-size: 10px; color: var(--ink-faint);
+  line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+
+/* Topbar toggle pills (syllables / rhyme colours) — dim when the feature is off */
+.pill.toggle-off { opacity: 0.4; }
+
+/* End-rhyme colour grouping (browse mode only) */
+.rhyme-mark { border-radius: 4px; padding: 0 2px; color: var(--ink); }
+.rhyme-0 { background: rgba(126,162,255,0.18); }
+.rhyme-1 { background: rgba(94,234,212,0.18); }
+.rhyme-2 { background: rgba(251,191,36,0.18); }
+.rhyme-3 { background: rgba(249,168,212,0.18); }
+.rhyme-4 { background: rgba(196,181,253,0.18); }
+.rhyme-5 { background: rgba(134,239,172,0.18); }
 
 /* Browse mode: no keyboard, no native text-selection handles/menu — taps are
    handled entirely in JS via caretRangeFromPoint. */
@@ -382,7 +409,10 @@ input, textarea { background: rgba(255,255,255,0.06); }
   .source-card { flex: none; max-height: none; }
 
   .scratch-pane { border-radius: var(--radius-card); overflow: hidden; }
-  .scratchpad { padding: 28px clamp(20px, 4vw, 56px); font-size: 18px; }
+  .scratchpad {
+    padding: 28px clamp(20px, 4vw, 56px) 28px calc(clamp(20px, 4vw, 56px) + 30px);
+    font-size: 18px;
+  }
 
   .tools-panel {
     display: flex; flex-direction: column; border-radius: var(--radius-card);

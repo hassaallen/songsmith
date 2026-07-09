@@ -37,6 +37,8 @@
           <button id="filter-btn" class="pill" type="button" title="Choose which sources feed the blend">Filter</button>
           <button id="add-text-btn" class="pill" type="button" title="Import your own text">+ Text</button>
           <button id="shuffle-btn" class="pill" type="button" title="Shuffle">Shuffle</button>
+          <button id="syll-toggle" class="pill" type="button" title="Syllable counts">123</button>
+          <button id="rhyme-toggle" class="pill" type="button" title="Rhyme colours">AB</button>
         </div>
 
         <div class="topbar-right">
@@ -67,6 +69,7 @@
         </div>
 
         <section class="scratch-pane">
+          <div id="syllable-gutter" class="syllable-gutter" aria-hidden="true"><div id="syllable-gutter-inner"></div></div>
           <div id="scratchpad" class="scratchpad" contenteditable="true" spellcheck="true" lang="en-AU"
                data-placeholder="Tap a phrase above to pull it in. Tap any word for rhymes."></div>
 

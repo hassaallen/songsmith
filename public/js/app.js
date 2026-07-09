@@ -26,6 +26,9 @@
 
     scratchpad: $('scratchpad'), followStrip: $('follow-strip'), followChips: $('follow-chips'),
 
+    syllableGutter: $('syllable-gutter'), syllGutterInner: $('syllable-gutter-inner'),
+    syllToggle: $('syll-toggle'), rhymeToggle: $('rhyme-toggle'),
+
     toolsPanel: $('tools-panel'),
     sheetBackdrop: $('sheet-backdrop'), wordSheet: $('word-sheet'),
     sheetHandle: $('sheet-handle'), sheetContent: $('sheet-content'),
@@ -62,6 +65,25 @@
   // text-selection UI); fine-pointer (mouse) devices default to edit, preserving
   // the previous desktop-first behaviour.
   let editMode = window.matchMedia('(pointer: fine)').matches;
+
+  // ---------- Syllable gutter / rhyme colour state ----------
+  let syllablesOn = readBool('songsmith.syllables', true);
+  let rhymesOn = readBool('songsmith.rhymes', true);
+  let gutterTimer = null;
+  let rhymeTimer = null;
+  const rhymeCache = new Map(); // normalised end word -> array of lowercase rhyme words (from Datamuse)
+  const RHYME_CACHE_KEY = 'songsmith.rhymecache';
+  const RHYME_CACHE_CAP = 200;
+
+  function readBool(key, def) {
+    try {
+      const v = localStorage.getItem(key);
+      return v === null ? def : v === '1';
+    } catch (_) { return def; }
+  }
+  function writeBool(key, val) {
+    try { localStorage.setItem(key, val ? '1' : '0'); } catch (_) {}
+  }
 
   // ---------- Auth ----------
   async function init() {
@@ -182,6 +204,8 @@
     applyEditMode();
     markSaved();
     updateFollowStrip();
+    recomputeGutter();
+    scheduleRhymes();
   }
 
   function newDraft() {
@@ -192,6 +216,8 @@
     applyEditMode();
     markSaved();
     updateFollowStrip();
+    recomputeGutter();
+    scheduleRhymes();
   }
 
   function setSaveStatus(text, tone) {
@@ -462,6 +488,7 @@
 
   function enterEditMode() {
     hideWordTools(); // unwraps any .word-hit highlight and closes the sheet
+    unwrapRhymeMarks(); // rhyme decorations must never sit in the DOM while editable
     editMode = true;
     applyEditMode();
     el.scratchpad.focus();
@@ -473,6 +500,7 @@
     el.scratchpad.blur();
     editMode = false;
     applyEditMode();
+    scheduleRhymes();
   }
 
   el.editFab.addEventListener('click', () => {
@@ -480,10 +508,16 @@
   });
 
   // ---------- Scratchpad: insertion, selection, follow strip ----------
-  el.scratchpad.addEventListener('input', () => { markDirty(); scheduleFollow(); });
+  el.scratchpad.addEventListener('input', () => { markDirty(); scheduleFollow(); scheduleGutter(); });
   el.scratchpad.addEventListener('keyup', onCaretActivity);
   el.scratchpad.addEventListener('mouseup', onCaretActivity);
   el.scratchpad.addEventListener('click', onScratchpadTap);
+  // Gutter numbers live in content coordinates; sync them to the pad's scroll
+  // position with a cheap transform instead of recomputing on every scroll tick.
+  el.scratchpad.addEventListener('scroll', () => {
+    if (el.syllGutterInner) el.syllGutterInner.style.transform = `translateY(${-el.scratchpad.scrollTop}px)`;
+  });
+  window.addEventListener('resize', scheduleGutter);
   el.scratchpad.addEventListener('dragover', (e) => e.preventDefault());
   el.scratchpad.addEventListener('drop', (e) => {
     e.preventDefault();
@@ -506,6 +540,8 @@
       const prefix = (isEmpty || last === '\n') ? '' : '\n';
       pad.appendChild(document.createTextNode(prefix + text + '\n'));
       markDirty();
+      scheduleGutter();
+      scheduleRhymes();
       return;
     }
     const isEmpty = pad.textContent.length === 0;
@@ -564,6 +600,8 @@
     }
     markDirty();
     scheduleFollow();
+    scheduleGutter();
+    scheduleRhymes();
   }
 
   function onCaretActivity() {
@@ -817,6 +855,8 @@
     savedRange = range.cloneRange();
     hideWordTools();
     markDirty();
+    scheduleGutter();
+    scheduleRhymes();
   }
 
   // ---------- Word-tools bottom sheet mechanics (mobile) ----------
@@ -844,6 +884,259 @@
     if (e.key === 'Escape') hideWordTools();
   });
 
+  // ---------- Syllable gutter & rhyme toggles (topbar pills) ----------
+  el.syllToggle.addEventListener('click', () => {
+    syllablesOn = !syllablesOn;
+    writeBool('songsmith.syllables', syllablesOn);
+    updateToggleUI();
+    if (syllablesOn) recomputeGutter(); else clearGutter();
+  });
+  el.rhymeToggle.addEventListener('click', () => {
+    rhymesOn = !rhymesOn;
+    writeBool('songsmith.rhymes', rhymesOn);
+    updateToggleUI();
+    if (rhymesOn) scheduleRhymes(); else unwrapRhymeMarks();
+  });
+  function updateToggleUI() {
+    el.syllToggle.classList.toggle('toggle-off', !syllablesOn);
+    el.rhymeToggle.classList.toggle('toggle-off', !rhymesOn);
+    el.syllableGutter.classList.toggle('hidden', !syllablesOn);
+  }
+  function clearGutter() { el.syllGutterInner.innerHTML = ''; }
+
+  // ---------- Shared DOM text-node walking (gutter + rhyme grouping) ----------
+  // The scratchpad's logical text is whatever is walked, in order, across every
+  // text node — including ones sitting inside .word-hit / .rhyme-mark spans —
+  // so this always matches the plain-text model the app saves (innerText).
+  function buildTextNodeIndex() {
+    const walker = document.createTreeWalker(el.scratchpad, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    let node;
+    while ((node = walker.nextNode())) nodes.push(node);
+    return nodes;
+  }
+  function flattenText(nodes) { return nodes.map((n) => n.textContent).join(''); }
+  function locateOffset(nodes, targetOffset) {
+    let acc = 0;
+    for (const n of nodes) {
+      const len = n.textContent.length;
+      if (targetOffset <= acc + len) return { node: n, offset: targetOffset - acc };
+      acc += len;
+    }
+    if (nodes.length) { const last = nodes[nodes.length - 1]; return { node: last, offset: last.textContent.length }; }
+    return null;
+  }
+  function rangeForSpan(nodes, start, end) {
+    const s = locateOffset(nodes, start);
+    const e = locateOffset(nodes, end);
+    if (!s || !e) return null;
+    const range = document.createRange();
+    range.setStart(s.node, s.offset);
+    range.setEnd(e.node, e.offset);
+    return range;
+  }
+
+  // ---------- Feature A: syllable gutter ----------
+  function scheduleGutter() {
+    if (!syllablesOn) return;
+    clearTimeout(gutterTimer);
+    gutterTimer = setTimeout(recomputeGutter, 300);
+  }
+  function recomputeGutter() {
+    if (!syllablesOn) return;
+    const nodes = buildTextNodeIndex();
+    const fullText = flattenText(nodes);
+    if (!fullText.length) { clearGutter(); return; }
+    const padRect = el.scratchpad.getBoundingClientRect();
+    const scrollTop = el.scratchpad.scrollTop;
+    const lines = fullText.split('\n');
+    let html = '';
+    let idx = 0;
+    lines.forEach((line) => {
+      if (line.trim().length) {
+        const words = line.match(/[A-Za-z'’-]+/g) || [];
+        const syll = words.reduce((sum, w) => sum + countSyllables(w), 0);
+        const loc = locateOffset(nodes, idx);
+        if (loc) {
+          const range = document.createRange();
+          range.setStart(loc.node, loc.offset);
+          range.collapse(true);
+          const rects = range.getClientRects();
+          const rect = rects.length ? rects[0] : range.getBoundingClientRect();
+          if (rect && (rect.width || rect.height || rect.top)) {
+            const y = rect.top - padRect.top + scrollTop;
+            html += `<span class="syll-num" style="top:${y}px">${syll}</span>`;
+          }
+        }
+      }
+      idx += line.length + 1; // account for the '\n' separator
+    });
+    el.syllGutterInner.innerHTML = html;
+    // keep the just-rendered numbers aligned with the current scroll position
+    el.syllGutterInner.style.transform = `translateY(${-scrollTop}px)`;
+  }
+
+  // ---------- Feature B: end-rhyme colour grouping (browse mode only) ----------
+  function unwrapRhymeMarks() {
+    el.scratchpad.querySelectorAll('span.rhyme-mark').forEach((span) => {
+      const parent = span.parentNode;
+      if (!parent) return;
+      while (span.firstChild) parent.insertBefore(span.firstChild, span);
+      parent.removeChild(span);
+      parent.normalize();
+    });
+  }
+
+  function getLineEndWords() {
+    const nodes = buildTextNodeIndex();
+    const fullText = flattenText(nodes);
+    const lines = fullText.split('\n');
+    const endWords = [];
+    let idx = 0;
+    lines.forEach((line) => {
+      const matches = [...line.matchAll(/[A-Za-z'’-]+/g)];
+      if (matches.length) {
+        const last = matches[matches.length - 1];
+        endWords.push({ word: last[0], start: idx + last.index, end: idx + last.index + last[0].length });
+      }
+      idx += line.length + 1;
+    });
+    return endWords;
+  }
+
+  function normalizeWord(w) { return (w || '').toLowerCase().replace(/[^a-z]/g, ''); }
+  function fallbackKey(w) {
+    const s = normalizeWord(w);
+    if (!s) return '';
+    const m = s.match(/[aeiouy][^aeiouy]*$/);
+    return m ? m[0] : s;
+  }
+
+  function loadRhymeCache() {
+    try {
+      const raw = localStorage.getItem(RHYME_CACHE_KEY);
+      if (!raw) return;
+      const arr = JSON.parse(raw);
+      arr.forEach(([k, v]) => rhymeCache.set(k, v));
+    } catch (_) {}
+  }
+  function saveRhymeCache() {
+    try {
+      localStorage.setItem(RHYME_CACHE_KEY, JSON.stringify([...rhymeCache.entries()]));
+    } catch (_) {}
+  }
+  function cacheGetRhymes(word) {
+    if (!rhymeCache.has(word)) return null;
+    const v = rhymeCache.get(word);
+    rhymeCache.delete(word); rhymeCache.set(word, v); // bump recency (LRU-ish)
+    return v;
+  }
+  function cacheSetRhymes(word, list) {
+    rhymeCache.set(word, list);
+    while (rhymeCache.size > RHYME_CACHE_CAP) {
+      const oldest = rhymeCache.keys().next().value;
+      rhymeCache.delete(oldest);
+    }
+    saveRhymeCache();
+  }
+
+  // Fetches (or reuses cached) Datamuse rhyme lists for every unique end word.
+  // Returns a Map: normalised word -> Set of lowercase rhymes, or null if the
+  // fetch failed (signals "use the offline heuristic for this word").
+  async function fetchRhymeLists(words) {
+    const result = new Map();
+    const toFetch = [];
+    words.forEach((w) => {
+      const cached = cacheGetRhymes(w);
+      if (cached) result.set(w, new Set(cached));
+      else toFetch.push(w);
+    });
+    await Promise.all(toFetch.map(async (w) => {
+      try {
+        const list = await API.datamuse({ rel_rhy: w, max: 50 });
+        const set = new Set((list || []).map((x) => (x.word || '').toLowerCase()));
+        result.set(w, set);
+        cacheSetRhymes(w, [...set]);
+      } catch (_) {
+        result.set(w, null);
+      }
+    }));
+    return result;
+  }
+
+  // Union-find over the unique end words: primary tier is a mutual Datamuse
+  // rel_rhy check; if either word's fetch failed, fall back to the orthographic
+  // heuristic (matching trailing vowel-cluster+consonants) for that pair only.
+  function buildRhymeGroups(words, rhymeMap) {
+    const n = words.length;
+    const parent = words.map((_, i) => i);
+    const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+    const union = (i, j) => { const a = find(i), b = find(j); if (a !== b) parent[a] = b; };
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        if (words[i] === words[j]) { union(i, j); continue; }
+        const setA = rhymeMap.get(words[i]);
+        const setB = rhymeMap.get(words[j]);
+        if ((setA && setA.has(words[j])) || (setB && setB.has(words[i]))) { union(i, j); continue; }
+        if (setA === null || setB === null) { // at least one fetch failed -> heuristic fallback
+          const ka = fallbackKey(words[i]), kb = fallbackKey(words[j]);
+          if (ka && ka === kb) union(i, j);
+        }
+      }
+    }
+    const groups = {};
+    for (let i = 0; i < n; i++) { const r = find(i); (groups[r] = groups[r] || []).push(i); }
+    const groupOf = new Map();
+    let colorIdx = 0;
+    Object.values(groups).forEach((members) => {
+      if (members.length < 2) return; // no rhyme partner => no decoration
+      const color = colorIdx % 6; colorIdx++;
+      members.forEach((i) => groupOf.set(words[i], color));
+    });
+    return groupOf;
+  }
+
+  function applyRhymeDecorations(endWords, groupOf) {
+    endWords.forEach(({ word, start, end }) => {
+      const norm = normalizeWord(word);
+      if (!groupOf.has(norm)) return;
+      const color = groupOf.get(norm);
+      // Re-walk the DOM before every insertion: surroundContents can split/replace
+      // the text node it wraps, so node references from earlier in this pass may
+      // be stale even though the absolute character offsets are still valid.
+      const nodes = buildTextNodeIndex();
+      const range = rangeForSpan(nodes, start, end);
+      if (!range) return;
+      try {
+        const span = document.createElement('span');
+        span.className = 'rhyme-mark rhyme-' + color;
+        range.surroundContents(span);
+      } catch (_) { /* skip this word on any unexpected DOM shape */ }
+    });
+  }
+
+  function scheduleRhymes() {
+    if (editMode || !rhymesOn) return;
+    clearTimeout(rhymeTimer);
+    rhymeTimer = setTimeout(recomputeRhymes, 400);
+  }
+
+  async function recomputeRhymes() {
+    if (editMode || !rhymesOn) return;
+    unwrapRhymeMarks();
+    const endWords = getLineEndWords();
+    if (endWords.length < 2) return;
+    const uniqueWords = [...new Set(endWords.map((e) => normalizeWord(e.word)))].filter(Boolean);
+    if (uniqueWords.length < 2) return;
+    const rhymeMap = await fetchRhymeLists(uniqueWords);
+    if (editMode || !rhymesOn) return; // draft/mode may have changed while awaiting the network
+    const groupOf = buildRhymeGroups(uniqueWords, rhymeMap);
+    if (!groupOf.size) return;
+    unwrapRhymeMarks(); // in case something re-decorated during the await (shouldn't, but stay safe)
+    const freshEndWords = getLineEndWords();
+    applyRhymeDecorations(freshEndWords, groupOf);
+  }
+
   // ---------- Utilities ----------
   function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
   function escapeHtml(s) { return (s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -864,5 +1157,7 @@
 
   updateModePill();
   applyEditMode();
+  loadRhymeCache();
+  updateToggleUI();
   init();
 })();
