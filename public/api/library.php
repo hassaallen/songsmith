@@ -8,7 +8,28 @@
 //   library.php?action=random&n=40&sources=slug1,slug2 -> blend limited to those sources
 
 require __DIR__ . '/helpers.php';
-require_auth();
+require __DIR__ . '/db.php';
+$uid = require_auth();
+
+// The user's own imported texts join the blend as a pseudo-source.
+const MY_TEXTS_SLUG = 'my-texts';
+
+function my_texts_fragments(int $uid): array
+{
+    $stmt = db()->prepare('SELECT title, body FROM texts WHERE user_id = ?');
+    $stmt->execute([$uid]);
+    $frags = [];
+    foreach ($stmt->fetchAll() as $t) {
+        $pieces = preg_split('/[\n.;:!?]+/', (string) $t['body']);
+        foreach ($pieces as $p) {
+            $p = trim($p);
+            if (mb_strlen($p) >= 9 && mb_strlen($p) <= 120) {
+                $frags[] = ['text' => $p, 'title' => $t['title']];
+            }
+        }
+    }
+    return $frags;
+}
 
 // Corpus dir: sibling of the web root, e.g. /home/hassaall/songwriting_corpus/
 $dir = realpath(__DIR__ . '/../../songwriting_corpus');
@@ -36,6 +57,11 @@ if ($action === 'manifest') {
             'work' => $s['work'], 'type' => $s['type'], 'count' => $s['count'],
         ];
     }, $manifest);
+    $mine = my_texts_fragments($uid);
+    if ($mine) {
+        $out[] = ['slug' => MY_TEXTS_SLUG, 'author' => 'My texts',
+                  'work' => 'Your imported texts', 'type' => 'lyric', 'count' => count($mine)];
+    }
     json_out(['sources' => $out]);
 }
 
@@ -45,6 +71,11 @@ $n = max(1, min(80, (int) ($_GET['n'] ?? 40)));
 $bySlug = [];
 foreach ($manifest as $s) {
     $bySlug[$s['slug']] = $s;
+}
+// User texts join the pool (only when the user actually has some).
+$mine = my_texts_fragments($uid);
+if ($mine) {
+    $bySlug[MY_TEXTS_SLUG] = ['slug' => MY_TEXTS_SLUG, 'author' => 'My texts', 'work' => 'Your imported texts'];
 }
 
 // Resolve the pool of sources to draw from.
@@ -59,14 +90,18 @@ if (!$pool) {
 shuffle($pool);
 $pool = array_slice($pool, 0, 18);
 
-// Lazy-load + cache lines per source.
+// Lazy-load + cache lines per source. My-texts fragments come from the DB.
 $cache = [];
-$lines_of = function ($slug) use (&$cache, $dir) {
+$lines_of = function ($slug) use (&$cache, $dir, $mine) {
     if (!isset($cache[$slug])) {
-        $p = $dir . '/' . $slug . '.txt';
-        $cache[$slug] = is_file($p)
-            ? file($p, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES)
-            : [];
+        if ($slug === MY_TEXTS_SLUG) {
+            $cache[$slug] = $mine;
+        } else {
+            $p = $dir . '/' . $slug . '.txt';
+            $cache[$slug] = is_file($p)
+                ? file($p, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES)
+                : [];
+        }
     }
     return $cache[$slug];
 };
@@ -82,14 +117,21 @@ while (count($out) < $n && $attempts < $n * 6) {
         continue;
     }
     $frag = $lines[array_rand($lines)];
-    if (isset($seen[$frag])) {
+    if ($slug === MY_TEXTS_SLUG) {
+        $text = $frag['text'];
+        $work = $frag['title'];
+    } else {
+        $text = $frag;
+        $work = $bySlug[$slug]['work'] ?? '';
+    }
+    if (isset($seen[$text])) {
         continue;
     }
-    $seen[$frag] = true;
+    $seen[$text] = true;
     $out[] = [
-        'text' => $frag,
+        'text' => $text,
         'author' => $bySlug[$slug]['author'] ?? '',
-        'work' => $bySlug[$slug]['work'] ?? '',
+        'work' => $work,
     ];
 }
 

@@ -31,7 +31,53 @@ function fetch_url(string $url): array
     return ['body' => $body, 'code' => $code, 'err' => $err];
 }
 
-function passthrough_json(array $res): void
+// ---- US -> AU spelling (conservative, list-based; shared with the corpus builder) ----
+function us_au_map(): array
+{
+    static $map = null;
+    if ($map === null) {
+        $p = __DIR__ . '/us_au_map.json';
+        $map = is_file($p) ? (json_decode(file_get_contents($p), true) ?: []) : [];
+    }
+    return $map;
+}
+
+function au_spell(string $s): string
+{
+    $map = us_au_map();
+    if (!$map) {
+        return $s;
+    }
+    return preg_replace_callback('/\b[a-zA-Z]+\b/', static function ($m) use ($map) {
+        $w = $m[0];
+        $au = $map[strtolower($w)] ?? null;
+        if ($au === null) {
+            return $w;
+        }
+        if (ctype_upper($w)) {
+            return strtoupper($au);
+        }
+        if (ctype_upper($w[0])) {
+            return ucfirst($au);
+        }
+        return $au;
+    }, $s);
+}
+
+function au_spell_deep($data)
+{
+    if (is_string($data)) {
+        return au_spell($data);
+    }
+    if (is_array($data)) {
+        foreach ($data as $k => $v) {
+            $data[$k] = au_spell_deep($v);
+        }
+    }
+    return $data;
+}
+
+function passthrough_json(array $res, bool $au = false): void
 {
     if ($res['body'] === false || $res['err'] !== '') {
         json_out(['error' => 'Upstream request failed.'], 502);
@@ -40,6 +86,9 @@ function passthrough_json(array $res): void
     $decoded = json_decode($res['body'], true);
     if ($decoded === null && trim((string) $res['body']) !== 'null') {
         json_out(['error' => 'Upstream returned invalid data.'], 502);
+    }
+    if ($au) {
+        $decoded = au_spell_deep($decoded);
     }
     json_out($decoded, $res['code'] ?: 200);
 }
@@ -63,7 +112,7 @@ switch ($service) {
         if (!isset($params['md'])) {
             $params['md'] = 's'; // include syllable count metadata
         }
-        passthrough_json(fetch_url('https://api.datamuse.com/words?' . http_build_query($params)));
+        passthrough_json(fetch_url('https://api.datamuse.com/words?' . http_build_query($params)), true);
         break;
 
     case 'dictionary':
@@ -71,7 +120,7 @@ switch ($service) {
         if ($word === '') {
             json_out(['error' => 'Missing word.'], 400);
         }
-        passthrough_json(fetch_url('https://api.dictionaryapi.dev/api/v2/entries/en/' . rawurlencode($word)));
+        passthrough_json(fetch_url('https://api.dictionaryapi.dev/api/v2/entries/en/' . rawurlencode($word)), true);
         break;
 
     case 'poetry_random':

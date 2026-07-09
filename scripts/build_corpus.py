@@ -39,11 +39,27 @@ def classify(author, fn):
     return AUTHOR_TYPE.get(author, 'prose')
 
 # ---- text extraction ------------------------------------------------------
+with open(os.path.join(ROOT, 'public', 'api', 'us_au_map.json'), encoding='utf-8') as _f:
+    US_AU = json.load(_f)
+_AU_RX = re.compile(r'\b(' + '|'.join(sorted(US_AU, key=len, reverse=True)) + r')\b', re.I)
+
+def _au_word(m):
+    w = m.group(0)
+    au = US_AU.get(w.lower())
+    if not au:
+        return w
+    if w.isupper():
+        return au.upper()
+    if w[0].isupper():
+        return au[0].upper() + au[1:]
+    return au
+
 def normalize(s):
-    return (s.replace('’', "'").replace('‘', "'")
-             .replace('“', '"').replace('”', '"')
-             .replace('…', '...').replace('–', '-').replace('—', '-')
-             .replace('\xa0', ' '))
+    s = (s.replace('’', "'").replace('‘', "'")
+          .replace('“', '"').replace('”', '"')
+          .replace('…', '...').replace('–', '-').replace('—', '-')
+          .replace('\xa0', ' '))
+    return _AU_RX.sub(_au_word, s)
 
 def epub_text(path):
     z = zipfile.ZipFile(path)
