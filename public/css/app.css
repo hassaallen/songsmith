@@ -107,14 +107,20 @@ input, textarea { background: rgba(255,255,255,0.06); }
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 10px 14px; flex: none; position: relative; z-index: 20;
 }
-.topbar-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .view-title { margin: 0; font-size: 16px; font-weight: 600; }
+
+.topbar-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .draft-title {
-  background: transparent; border: none;
-  font-size: 16px; font-weight: 600; padding: 2px 0; max-width: 60vw; outline: none; color: var(--ink);
+  background: transparent; border: none; text-align: right;
+  font-size: 15px; font-weight: 600; padding: 2px 0; max-width: 34vw; outline: none; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .draft-title::placeholder { color: var(--ink-faint); }
-.save-status { font-size: 11px; }
+
+.save-status { font-size: 11px; white-space: nowrap; flex: none; color: var(--ink-soft); }
+.save-status.amber { color: #e8b25a; }
+.save-status.green { color: #7fd88f; }
+.save-status.red { color: var(--error); }
 
 .topbar-menu-wrap { position: relative; flex: none; }
 .menu-dropdown {
@@ -128,10 +134,19 @@ input, textarea { background: rgba(255,255,255,0.06); }
 }
 .menu-dropdown button:hover { background: rgba(255,255,255,0.1); }
 
+/* ---------- Compact single-row header ---------- */
+.topbar-right { display: flex; align-items: center; gap: 8px; flex: none; min-width: 0; }
+
+@media (max-width: 480px) {
+  .save-status { font-size: 0; }
+  .save-status::before { content: "•"; font-size: 15px; line-height: 1; }
+  .draft-title { max-width: 26vw; }
+}
+
 /* ---------- Chip row / pills ---------- */
 .chip-row {
-  display: flex; gap: 8px; padding: 4px 14px 10px; overflow-x: auto; flex: none;
-  -webkit-overflow-scrolling: touch;
+  display: flex; gap: 8px; overflow-x: auto; flex: 1 1 auto; min-width: 0;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
 .chip-row::-webkit-scrollbar { display: none; }
 .pill {
@@ -211,6 +226,15 @@ input, textarea { background: rgba(255,255,255,0.06); }
 .scratchpad:empty:before { content: attr(data-placeholder); color: var(--ink-faint); }
 .scratchpad ::selection { background: var(--pill-active-bg); }
 
+/* Browse mode: no keyboard, no native text-selection handles/menu — taps are
+   handled entirely in JS via caretRangeFromPoint. */
+.scratchpad.browse {
+  user-select: none; -webkit-user-select: none; caret-color: transparent; cursor: pointer;
+}
+.word-hit {
+  background: rgba(120,160,255,0.3); border-radius: 4px;
+}
+
 .follow-strip {
   display: flex; align-items: center; gap: 8px; padding: 8px 14px; min-height: 46px;
   overflow-x: auto; flex: none; -webkit-overflow-scrolling: touch;
@@ -261,6 +285,16 @@ input, textarea { background: rgba(255,255,255,0.06); }
 .sheet-handle {
   display: block; width: 40px; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.25);
   border: none; margin: 6px auto 14px; padding: 0;
+}
+
+/* ---------- Browse/edit mode floating toggle ---------- */
+.edit-fab {
+  position: fixed; right: 16px;
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  width: 52px; height: 52px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; line-height: 1; color: var(--ink);
+  z-index: 45; /* above content, below sheets (55/60) and modals (100) */
 }
 
 /* ---------- Bottom tab bar ---------- */
@@ -332,7 +366,7 @@ input, textarea { background: rgba(255,255,255,0.06); }
 
   .topbar { border-radius: var(--radius-card); margin: 12px 16px 0; }
 
-  .chip-row { padding: 12px 16px 4px; flex: none; }
+  .draft-title { max-width: 320px; }
 
   .workspace {
     flex-direction: row; display: grid;
@@ -340,7 +374,6 @@ input, textarea { background: rgba(255,255,255,0.06); }
     padding: 0 16px 16px; flex: 1; min-height: 0; overflow: hidden;
   }
   .left-col { min-height: 0; overflow: hidden; }
-  .chip-row { grid-column: 1 / 2; }
 
   .source-list {
     flex-direction: column; overflow-x: hidden; overflow-y: auto; flex: 1;
@@ -358,6 +391,8 @@ input, textarea { background: rgba(255,255,255,0.06); }
 
   /* Bottom sheet & backdrop are mobile-only; desktop uses the persistent panel */
   .word-sheet, .sheet-backdrop { display: none !important; }
+
+  .edit-fab { bottom: 24px; }
 
   /* Floating centered pill tab bar */
   .tabbar {

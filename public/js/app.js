@@ -30,6 +30,8 @@
     sheetBackdrop: $('sheet-backdrop'), wordSheet: $('word-sheet'),
     sheetHandle: $('sheet-handle'), sheetContent: $('sheet-content'),
 
+    editFab: $('edit-fab'),
+
     tabbar: $('tabbar'),
     viewWrite: $('view-write'), viewForge: $('view-forge'), viewTray: $('view-tray'), viewSongs: $('view-songs'),
     draftsList: $('drafts-list'), songsNewBtn: $('songs-new-btn'),
@@ -55,6 +57,11 @@
   let selectedSources = [];   // empty = all sources
   let libManifest = null;
   let authorTypeMap = null;
+
+  // Browse vs edit mode. Touch devices default to browse (no keyboard, no native
+  // text-selection UI); fine-pointer (mouse) devices default to edit, preserving
+  // the previous desktop-first behaviour.
+  let editMode = window.matchMedia('(pointer: fine)').matches;
 
   // ---------- Auth ----------
   async function init() {
@@ -171,6 +178,8 @@
     currentDraftId = draft.id;
     el.draftTitle.value = draft.title || '';
     el.scratchpad.innerText = draft.body || '';
+    hideWordTools();
+    applyEditMode();
     markSaved();
     updateFollowStrip();
   }
@@ -179,22 +188,31 @@
     currentDraftId = null;
     el.draftTitle.value = '';
     el.scratchpad.innerText = '';
+    hideWordTools();
+    applyEditMode();
     markSaved();
     updateFollowStrip();
   }
 
+  function setSaveStatus(text, tone) {
+    el.saveStatus.textContent = text;
+    el.saveStatus.title = text;
+    el.saveStatus.classList.remove('amber', 'green', 'red');
+    if (tone) el.saveStatus.classList.add(tone);
+  }
+
   function markDirty() {
     dirty = true;
-    el.saveStatus.textContent = 'editing…';
+    setSaveStatus('editing…', 'amber');
     clearTimeout(saveTimer);
     saveTimer = setTimeout(flushSave, 1200);
   }
-  function markSaved() { dirty = false; el.saveStatus.textContent = 'saved'; }
+  function markSaved() { dirty = false; setSaveStatus('saved', 'green'); }
 
   async function flushSave() {
     if (!dirty && currentDraftId) return;
     const payload = { title: el.draftTitle.value.trim() || 'Untitled', body: el.scratchpad.innerText };
-    el.saveStatus.textContent = 'saving…';
+    setSaveStatus('saving…', 'amber');
     try {
       if (currentDraftId) {
         await API.updateDraft(currentDraftId, payload);
@@ -205,7 +223,7 @@
       await refreshDraftsCache();
       markSaved();
     } catch (err) {
-      el.saveStatus.textContent = 'save failed';
+      setSaveStatus('save failed', 'red');
     }
   }
 
@@ -412,10 +430,60 @@
     });
   }
 
+  // ---------- Browse / Edit mode ----------
+  // Browse mode keeps the scratchpad non-editable so a plain tap never opens the
+  // soft keyboard or triggers Android's native text-selection handles/menu. Word
+  // tools are reached by tapping a word (handled in the Scratchpad section below).
+  function applyEditMode() {
+    if (editMode) {
+      el.scratchpad.setAttribute('contenteditable', 'true');
+      el.scratchpad.classList.remove('browse');
+      el.editFab.textContent = '✓';
+      el.editFab.title = 'Done editing';
+    } else {
+      el.scratchpad.setAttribute('contenteditable', 'false');
+      el.scratchpad.classList.add('browse');
+      el.editFab.textContent = '✎';
+      el.editFab.title = 'Edit lyrics';
+      // Follow strip is caret-driven; meaningless without a caret.
+      el.followChips.innerHTML = '';
+      el.followStrip.classList.add('hidden');
+    }
+  }
+
+  function placeCaretAtEnd(node) {
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  function enterEditMode() {
+    hideWordTools(); // unwraps any .word-hit highlight and closes the sheet
+    editMode = true;
+    applyEditMode();
+    el.scratchpad.focus();
+    placeCaretAtEnd(el.scratchpad);
+  }
+
+  function exitEditMode() {
+    flushSave();
+    el.scratchpad.blur();
+    editMode = false;
+    applyEditMode();
+  }
+
+  el.editFab.addEventListener('click', () => {
+    if (editMode) exitEditMode(); else enterEditMode();
+  });
+
   // ---------- Scratchpad: insertion, selection, follow strip ----------
   el.scratchpad.addEventListener('input', () => { markDirty(); scheduleFollow(); });
   el.scratchpad.addEventListener('keyup', onCaretActivity);
   el.scratchpad.addEventListener('mouseup', onCaretActivity);
+  el.scratchpad.addEventListener('click', onScratchpadTap);
   el.scratchpad.addEventListener('dragover', (e) => e.preventDefault());
   el.scratchpad.addEventListener('drop', (e) => {
     e.preventDefault();
@@ -431,6 +499,15 @@
 
   function insertFragment(text) {
     const pad = el.scratchpad;
+    if (!editMode) {
+      // Browse mode: there is no caret (contenteditable is off), so always append.
+      const isEmpty = pad.textContent.length === 0;
+      const last = pad.textContent[pad.textContent.length - 1];
+      const prefix = (isEmpty || last === '\n') ? '' : '\n';
+      pad.appendChild(document.createTextNode(prefix + text + '\n'));
+      markDirty();
+      return;
+    }
     const isEmpty = pad.textContent.length === 0;
     let prefix = '';
     if (!isEmpty) {
@@ -490,14 +567,77 @@
   }
 
   function onCaretActivity() {
-    const sel = window.getSelection();
-    const word = (sel.toString() || '').trim();
-    if (word && /^[A-Za-z'’-]+$/.test(word)) {
-      showWordTools(word);
-    } else {
-      hideWordTools();
+    if (!editMode) return; // browse mode uses tap-to-inspect (onScratchpadTap) instead
+    // Selection-driven word tools stay opt-in to fine-pointer (mouse) devices only,
+    // so touch users editing never accidentally trigger native selection UI.
+    if (window.matchMedia('(pointer: fine)').matches) {
+      const sel = window.getSelection();
+      const word = (sel.toString() || '').trim();
+      if (word && /^[A-Za-z'’-]+$/.test(word)) {
+        showWordTools(word);
+      } else {
+        hideWordTools();
+      }
     }
     scheduleFollow();
+  }
+
+  // ---------- Browse-mode tap-to-inspect ----------
+  function unwrapWordHit() {
+    el.scratchpad.querySelectorAll('span.word-hit').forEach((span) => {
+      const parent = span.parentNode;
+      if (!parent) return;
+      while (span.firstChild) parent.insertBefore(span.firstChild, span);
+      parent.removeChild(span);
+      parent.normalize();
+    });
+  }
+
+  function caretPosFromPoint(x, y) {
+    if (document.caretRangeFromPoint) {
+      const r = document.caretRangeFromPoint(x, y);
+      return r ? { node: r.startContainer, offset: r.startOffset } : null;
+    }
+    if (document.caretPositionFromPoint) {
+      const p = document.caretPositionFromPoint(x, y);
+      return p ? { node: p.offsetNode, offset: p.offset } : null;
+    }
+    return null;
+  }
+
+  function expandToWord(node, offset) {
+    if (!node || node.nodeType !== Node.TEXT_NODE) return null;
+    const text = node.textContent;
+    const isWordChar = (c) => !!c && /[A-Za-z'’-]/.test(c);
+    if (offset < 0 || offset > text.length) return null;
+    let start = offset, end = offset;
+    while (start > 0 && isWordChar(text[start - 1])) start--;
+    while (end < text.length && isWordChar(text[end])) end++;
+    if (start === end) return null; // tap landed between/outside words
+    return { node, start, end, word: text.slice(start, end) };
+  }
+
+  function onScratchpadTap(e) {
+    if (editMode) return; // editing: taps just move the caret, handled natively
+    unwrapWordHit();
+    const pos = caretPosFromPoint(e.clientX, e.clientY);
+    const found = pos && expandToWord(pos.node, pos.offset);
+    if (!found) { hideWordTools(); return; }
+
+    const range = document.createRange();
+    range.setStart(found.node, found.start);
+    range.setEnd(found.node, found.end);
+    const span = document.createElement('span');
+    span.className = 'word-hit';
+    range.surroundContents(span);
+
+    const hlRange = document.createRange();
+    hlRange.selectNodeContents(span);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(hlRange);
+
+    showWordTools(found.word);
   }
 
   function scheduleFollow() {
@@ -507,6 +647,7 @@
 
   let followRequestId = 0;
   async function updateFollowStrip() {
+    if (!editMode) { el.followChips.innerHTML = ''; el.followStrip.classList.add('hidden'); return; }
     const prev = wordBeforeCaret();
     if (!prev || prev.length < 3 || STOPWORDS.has(prev.toLowerCase())) {
       el.followChips.innerHTML = ''; el.followStrip.classList.add('hidden'); return;
@@ -688,6 +829,7 @@
     el.sheetBackdrop.classList.remove('open');
   }
   function hideWordTools() {
+    unwrapWordHit();
     closeSheet();
     el.toolsPanel.innerHTML = TOOLS_HINT;
   }
@@ -721,5 +863,6 @@
   window.addEventListener('beforeunload', () => { if (dirty) navigator.sendBeacon && flushSave(); });
 
   updateModePill();
+  applyEditMode();
   init();
 })();

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-AU">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -32,25 +32,27 @@
     <!-- ===== Write view ===== -->
     <section id="view-write" class="view view-write">
       <header class="topbar glass">
-        <div class="topbar-title">
-          <input id="draft-title" class="draft-title" placeholder="Untitled" />
-          <span id="save-status" class="save-status muted">saved</span>
+        <div class="chip-row" id="chip-row">
+          <button id="mode-pill" class="pill active" type="button" data-mode="library">All voices</button>
+          <button id="filter-btn" class="pill" type="button" title="Choose which sources feed the blend">Filter</button>
+          <button id="add-text-btn" class="pill" type="button" title="Import your own text">+ Text</button>
+          <button id="shuffle-btn" class="pill" type="button" title="Shuffle">Shuffle</button>
         </div>
-        <div class="topbar-menu-wrap">
-          <button id="menu-btn" class="icon-btn round" title="Menu" aria-haspopup="true">⋯</button>
-          <div id="menu-dropdown" class="menu-dropdown glass hidden">
-            <button id="new-draft-btn" type="button">New song</button>
-            <button id="logout-btn" type="button">Sign out</button>
+
+        <div class="topbar-right">
+          <div class="topbar-title">
+            <input id="draft-title" class="draft-title" placeholder="Untitled" />
+          </div>
+          <span id="save-status" class="save-status muted" title="saved">saved</span>
+          <div class="topbar-menu-wrap">
+            <button id="menu-btn" class="icon-btn round" title="Menu" aria-haspopup="true">⋯</button>
+            <div id="menu-dropdown" class="menu-dropdown glass hidden">
+              <button id="new-draft-btn" type="button">New song</button>
+              <button id="logout-btn" type="button">Sign out</button>
+            </div>
           </div>
         </div>
       </header>
-
-      <div class="chip-row" id="chip-row">
-        <button id="mode-pill" class="pill active" type="button" data-mode="library">All voices</button>
-        <button id="filter-btn" class="pill" type="button" title="Choose which sources feed the blend">Filter</button>
-        <button id="add-text-btn" class="pill" type="button" title="Import your own text">+ Text</button>
-        <button id="shuffle-btn" class="pill" type="button" title="Shuffle">Shuffle</button>
-      </div>
 
       <div id="mode-menu" class="mode-menu glass hidden">
         <button type="button" data-mode="library">Library (all sources)</button>
@@ -65,7 +67,7 @@
         </div>
 
         <section class="scratch-pane">
-          <div id="scratchpad" class="scratchpad" contenteditable="true" spellcheck="true"
+          <div id="scratchpad" class="scratchpad" contenteditable="true" spellcheck="true" lang="en-AU"
                data-placeholder="Tap a phrase above to pull it in. Tap any word for rhymes."></div>
 
           <!-- Ambient "what follows" strip -->
@@ -115,6 +117,9 @@
       </div>
     </section>
 
+    <!-- Floating browse/edit mode toggle -->
+    <button id="edit-fab" class="edit-fab glass" type="button" title="Edit lyrics">✎</button>
+
     <!-- ===== Bottom tab bar ===== -->
     <nav class="tabbar glass" id="tabbar">
       <button class="tab active" type="button" data-view="write" title="Write">
@@ -146,7 +151,7 @@
       <p class="muted">Paste anything — lyrics, a poem, a chapter, an article, your own writing. It becomes cut-up source material.</p>
       <input id="text-title" placeholder="Title (e.g. On the Road — Kerouac)" />
       <input id="text-author" placeholder="Author / source (optional)" />
-      <textarea id="text-body" rows="10" placeholder="Paste your text here…"></textarea>
+      <textarea id="text-body" rows="10" placeholder="Paste your text here…" lang="en-AU" spellcheck="true"></textarea>
       <p id="text-error" class="error hidden"></p>
       <div class="modal-actions">
         <button id="text-cancel" class="icon-btn" type="button">Cancel</button>
