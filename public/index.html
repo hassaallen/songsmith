@@ -98,14 +98,11 @@
       </div>
     </section>
 
-    <!-- ===== Tray view (placeholder) ===== -->
+    <!-- ===== Tray view ===== -->
     <section id="view-tray" class="view hidden">
       <header class="topbar glass"><h2 class="view-title">Tray</h2></header>
       <div class="view-body">
-        <div class="glass placeholder-card">
-          <h3>Tray — coming in the next update</h3>
-          <p class="muted">Keep phrases you love across songs.</p>
-        </div>
+        <div id="tray-list" class="tray-list"></div>
       </div>
     </section>
 
@@ -132,7 +129,7 @@
         <span class="tab-icon" aria-hidden="true">🔥</span><span class="tab-label">Forge</span>
       </button>
       <button class="tab" type="button" data-view="tray" title="Tray">
-        <span class="tab-icon" aria-hidden="true">♡</span><span class="tab-label">Tray</span>
+        <span class="tab-icon-wrap"><span class="tab-icon" aria-hidden="true">♡</span><span id="tray-badge" class="tray-badge hidden"></span></span><span class="tab-label">Tray</span>
       </button>
       <button class="tab" type="button" data-view="songs" title="Songs">
         <span class="tab-icon" aria-hidden="true">▤</span><span class="tab-label">Songs</span>

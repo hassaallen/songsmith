@@ -38,6 +38,8 @@
     tabbar: $('tabbar'),
     viewWrite: $('view-write'), viewForge: $('view-forge'), viewTray: $('view-tray'), viewSongs: $('view-songs'),
     draftsList: $('drafts-list'), songsNewBtn: $('songs-new-btn'),
+
+    trayList: $('tray-list'), trayBadge: $('tray-badge'),
   };
 
   const TOOLS_HINT = '<p class="muted tools-hint">Select a word for rhymes &amp; synonyms.</p>';
@@ -121,6 +123,7 @@
     show(el.appView);
     await loadDraftsList();
     await loadSources();
+    loadTray(); // populate the tab badge count; view render happens on first tab visit
   }
 
   // ---------- Header "⋯" menu ----------
@@ -155,7 +158,7 @@
     el.tabbar.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === name));
     if (name === 'write') el.viewWrite.classList.remove('hidden');
     else if (name === 'forge') el.viewForge.classList.remove('hidden');
-    else if (name === 'tray') el.viewTray.classList.remove('hidden');
+    else if (name === 'tray') { el.viewTray.classList.remove('hidden'); loadTray().then(renderTrayList); }
     else if (name === 'songs') { el.viewSongs.classList.remove('hidden'); renderDraftsList(); }
   }
 
@@ -260,6 +263,82 @@
   }
 
   el.draftTitle.addEventListener('input', markDirty);
+
+  // ---------- Tray ----------
+  let trayCache = [];
+
+  async function loadTray() {
+    try {
+      const { items } = await API.trayList();
+      trayCache = items;
+    } catch (_) { /* keep whatever was cached before; badge/list just won't update */ }
+    updateTrayBadge();
+  }
+
+  function updateTrayBadge() {
+    const n = trayCache.length;
+    el.trayBadge.textContent = n > 99 ? '99+' : String(n);
+    el.trayBadge.classList.toggle('hidden', n === 0);
+  }
+
+  // Records a successful, non-duplicate keep in the local cache so the badge
+  // count and any open Tray view reflect it without a round-trip re-fetch.
+  function rememberKept(id, text, source) {
+    trayCache.unshift({ id, text, source: source || null, created_at: new Date().toISOString() });
+    updateTrayBadge();
+  }
+
+  function keepFragment(text, source, onKept) {
+    return API.trayAdd(text, source || null).then((r) => {
+      if (!r.duplicate) rememberKept(r.id, text, source);
+      if (onKept) onKept(r);
+    });
+  }
+
+  function renderTrayList() {
+    el.trayList.innerHTML = '';
+    if (!trayCache.length) {
+      el.trayList.innerHTML = '<p class="tray-empty muted">Nothing kept yet — tap ♡ on a phrase or word to keep it here.</p>';
+      return;
+    }
+    trayCache.forEach((item) => {
+      const card = document.createElement('div');
+      card.className = 'tray-card';
+      card.innerHTML =
+        `<div class="tray-card-body">` +
+          `<div class="tray-card-text">${escapeHtml(item.text)}</div>` +
+          `<div class="tray-card-source muted">${escapeHtml(item.source || '')}</div>` +
+        `</div>` +
+        `<div class="tray-card-actions">` +
+          `<button type="button" class="tray-insert-btn" data-insert>→ Song</button>` +
+          `<button type="button" class="tray-delete-btn" data-delete title="Remove" aria-label="Remove">✕</button>` +
+        `</div>`;
+      card.querySelector('[data-insert]').addEventListener('click', () => {
+        insertFragment(item.text);
+        showView('write');
+      });
+      card.querySelector('[data-delete]').addEventListener('click', () => removeTrayItem(item.id, card));
+      el.trayList.appendChild(card);
+    });
+  }
+
+  function removeTrayItem(id, cardEl) {
+    // Optimistic removal — no confirm dialog, no undo. A brief inline notice
+    // stands in for a toast; the DOM update happens immediately either way.
+    cardEl.remove();
+    trayCache = trayCache.filter((it) => it.id !== id);
+    updateTrayBadge();
+    if (!trayCache.length) {
+      renderTrayList();
+    } else {
+      const notice = document.createElement('div');
+      notice.className = 'tray-removed-notice';
+      notice.textContent = 'Removed';
+      el.trayList.prepend(notice);
+      setTimeout(() => notice.remove(), 1500);
+    }
+    API.trayDelete(id).catch(() => { /* best-effort; item is already gone visually */ });
+  }
 
   // ---------- Source mode pill / menu ----------
   el.modePill.addEventListener('click', (e) => {
@@ -448,10 +527,21 @@
       d.className = 'source-card';
       d.draggable = true;
       const badge = it.type ? `<span class="type-badge type-${it.type}">${escapeHtml(it.type)}</span>` : '';
-      d.innerHTML = `<div class="src-row"><span class="src-text">${escapeHtml(it.text)}</span></div>` +
+      d.innerHTML = `<button type="button" class="src-keep-btn" data-keep aria-label="Keep in Tray">♡</button>` +
+                    `<div class="src-row"><span class="src-text">${escapeHtml(it.text)}</span></div>` +
                     `<div class="src-row"><span class="src-meta">${escapeHtml(it.meta || '')}</span>${badge}</div>`;
       d.addEventListener('click', () => insertFragment(it.text));
       d.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', it.text));
+      const keepBtn = d.querySelector('[data-keep]');
+      keepBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // corner tap keeps the fragment; must not also insert it
+        if (keepBtn.disabled) return;
+        keepBtn.disabled = true;
+        keepFragment(it.text, it.meta, () => {
+          keepBtn.classList.add('kept');
+          keepBtn.textContent = '♥';
+        }).catch(() => { keepBtn.disabled = false; });
+      });
       el.sourceList.appendChild(d);
     });
   }
@@ -781,10 +871,18 @@
     toolRoots().forEach((root) => {
       const btn = root.querySelector('[data-keep]');
       if (!btn) return;
-      // Placeholder only — visual "keep" state, not yet wired to the Tray.
       btn.addEventListener('click', () => {
         const key = word.toLowerCase();
-        if (keptWords.has(key)) keptWords.delete(key); else keptWords.add(key);
+        const wasKept = keptWords.has(key);
+        if (wasKept) {
+          // Toggling off is visual-only — the word was already saved to the
+          // Tray on the way in; un-tapping here doesn't delete it (that's
+          // done from the Tray view itself).
+          keptWords.delete(key);
+        } else {
+          keptWords.add(key);
+          keepFragment(word, 'word tools').catch(() => {});
+        }
         const kept = keptWords.has(key);
         toolRoots().forEach((r) => {
           const b = r.querySelector('[data-keep]');
