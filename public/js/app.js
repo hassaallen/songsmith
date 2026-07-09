@@ -14,7 +14,7 @@
 
     chipRow: $('chip-row'),
     modePill: $('mode-pill'), modeMenu: $('mode-menu'),
-    shuffleBtn: $('shuffle-btn'), sourceList: $('source-list'),
+    shuffleBtn: $('shuffle-btn'), sourceList: $('source-list'), sourceNotice: $('source-notice'),
     addTextBtn: $('add-text-btn'), filterBtn: $('filter-btn'),
 
     filterModal: $('filter-modal'), filterList: $('filter-list'),
@@ -37,6 +37,15 @@
 
   const TOOLS_HINT = '<p class="muted tools-hint">Select a word for rhymes &amp; synonyms.</p>';
   const MODE_LABELS = { library: 'All voices', poetry_random: 'Poems', my_texts: 'My texts' };
+  const STOPWORDS = new Set([
+    'a', 'an', 'and', 'or', 'but', 'nor', 'of', 'to', 'in', 'on', 'at', 'by', 'for', 'with', 'from', 'as', 'is',
+    'am', 'are', 'was', 'were', 'be', 'been', 'being', 'it', 'its', "it's", 'this', 'that', 'these', 'those',
+    'there', 'here', 'i', 'you', 'he', 'she', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your',
+    'his', 'our', 'their', 'mine', 'yours', 'do', 'does', 'did', 'done', 'have', 'has', 'had', 'having', 'will',
+    'would', 'shall', 'should', 'can', 'could', 'may', 'might', 'must', 'not', 'no', 'yes', 'so', 'if', 'then',
+    'than', 'when', 'what', 'who', 'whom', 'whose', 'which', 'how', 'where', 'why', 'oh', 'ah', 'eh', 'la',
+    'de', 'le', 'du', 'des', 'les', 'el', 'il', 'en', 'un', 'une', 'aux', 'au', 'etc', 'et',
+  ]);
 
   let currentDraftId = null;
   let dirty = false;
@@ -315,14 +324,39 @@
 
   // ---------- Source strip ----------
   async function loadSources() {
+    hideSourceNotice();
     el.sourceList.innerHTML = '<p class="source-loading muted">Loading…</p>';
     try {
       if (currentMode === 'my_texts') await loadMyTextLines();
       else if (currentMode === 'poetry_random') await loadPoetryLines();
       else await loadLibraryLines();
     } catch (err) {
-      el.sourceList.innerHTML = `<p class="source-error">${escapeHtml(err.message)}</p>`;
+      if (currentMode === 'poetry_random') {
+        try {
+          await loadLibraryLines();
+          showSourceNotice('Poems source is unavailable right now — showing your Library instead.');
+          return;
+        } catch (_) { /* fall through to failure state below */ }
+      }
+      showSourceFailure();
     }
+  }
+
+  function showSourceNotice(text) {
+    el.sourceNotice.innerHTML = `<span>${escapeHtml(text)}</span><button type="button" aria-label="Dismiss">×</button>`;
+    el.sourceNotice.classList.remove('hidden');
+    el.sourceNotice.querySelector('button').addEventListener('click', hideSourceNotice);
+  }
+  function hideSourceNotice() {
+    el.sourceNotice.classList.add('hidden');
+    el.sourceNotice.innerHTML = '';
+  }
+
+  function showSourceFailure() {
+    el.sourceList.innerHTML = '<p class="source-empty">Couldn’t load sources.</p>' +
+      '<button type="button" class="pill source-retry">Retry</button>';
+    const retryBtn = el.sourceList.querySelector('.source-retry');
+    if (retryBtn) retryBtn.addEventListener('click', loadSources);
   }
 
   async function loadLibraryLines() {
@@ -372,7 +406,7 @@
       const badge = it.type ? `<span class="type-badge type-${it.type}">${escapeHtml(it.type)}</span>` : '';
       d.innerHTML = `<div class="src-row"><span class="src-text">${escapeHtml(it.text)}</span></div>` +
                     `<div class="src-row"><span class="src-meta">${escapeHtml(it.meta || '')}</span>${badge}</div>`;
-      d.addEventListener('click', () => insertTextAtCaret('\n' + it.text + '\n'));
+      d.addEventListener('click', () => insertFragment(it.text));
       d.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', it.text));
       el.sourceList.appendChild(d);
     });
@@ -386,7 +420,7 @@
   el.scratchpad.addEventListener('drop', (e) => {
     e.preventDefault();
     const t = e.dataTransfer.getData('text/plain');
-    if (t) insertTextAtCaret(t);
+    if (t) insertFragment(t);
   });
   // keep contenteditable plain-text on paste
   el.scratchpad.addEventListener('paste', (e) => {
@@ -394,6 +428,47 @@
     const t = (e.clipboardData || window.clipboardData).getData('text');
     insertTextAtCaret(t);
   });
+
+  function insertFragment(text) {
+    const pad = el.scratchpad;
+    const isEmpty = pad.textContent.length === 0;
+    let prefix = '';
+    if (!isEmpty) {
+      const sel = window.getSelection();
+      const hasCaret = sel.rangeCount > 0 && pad.contains(sel.anchorNode);
+      const before = hasCaret ? charBeforeCaret() : pad.textContent[pad.textContent.length - 1];
+      prefix = (before == null || before === '\n') ? '' : '\n';
+    }
+    insertTextAtCaret(prefix + text + '\n');
+  }
+
+  function charBeforeCaret() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return null;
+    const node = sel.anchorNode;
+    if (!node) return null;
+    if (node.nodeType === Node.TEXT_NODE) {
+      const offset = sel.anchorOffset;
+      if (offset > 0) return node.textContent[offset - 1];
+      let prev = node.previousSibling;
+      while (prev) {
+        if (prev.nodeType === Node.TEXT_NODE) return prev.textContent.length ? prev.textContent[prev.textContent.length - 1] : null;
+        prev = prev.previousSibling;
+      }
+      return null;
+    }
+    if (node === el.scratchpad) {
+      const offset = sel.anchorOffset;
+      if (offset === 0) return null;
+      const prevChild = node.childNodes[offset - 1];
+      if (prevChild && prevChild.nodeType === Node.TEXT_NODE) {
+        const t = prevChild.textContent;
+        return t.length ? t[t.length - 1] : null;
+      }
+      return null;
+    }
+    return null;
+  }
 
   function insertTextAtCaret(text) {
     el.scratchpad.focus();
@@ -430,14 +505,31 @@
     followTimer = setTimeout(updateFollowStrip, 400);
   }
 
+  let followRequestId = 0;
   async function updateFollowStrip() {
     const prev = wordBeforeCaret();
-    if (!prev) { el.followChips.innerHTML = ''; el.followStrip.classList.add('hidden'); return; }
+    if (!prev || prev.length < 3 || STOPWORDS.has(prev.toLowerCase())) {
+      el.followChips.innerHTML = ''; el.followStrip.classList.add('hidden'); return;
+    }
+    const requestId = ++followRequestId;
     try {
       const words = await API.datamuse({ rel_bga: prev, max: 10 });
+      if (requestId !== followRequestId) return; // a newer request superseded this one
+      const seen = new Set();
+      const quality = words.filter((w) => {
+        const word = (w.word || '').toLowerCase();
+        if (!/^[a-z][a-z'-]*$/i.test(w.word || '')) return false;
+        if (word.length < 2) return false;
+        if (STOPWORDS.has(word)) return false;
+        if (w.score !== undefined && w.score <= 100) return false;
+        if (seen.has(word)) return false;
+        seen.add(word);
+        return true;
+      });
       el.followChips.innerHTML = '';
-      const top = words.slice(0, 10);
-      el.followStrip.classList.toggle('hidden', top.length === 0);
+      if (quality.length < 2) { el.followStrip.classList.add('hidden'); return; }
+      const top = quality.slice(0, 10);
+      el.followStrip.classList.remove('hidden');
       top.forEach((w) => {
         const c = document.createElement('button');
         c.className = 'chip';
@@ -447,6 +539,7 @@
         el.followChips.appendChild(c);
       });
     } catch (_) {
+      if (requestId !== followRequestId) return;
       el.followStrip.classList.add('hidden'); /* silent — ambient feature */
     }
   }
