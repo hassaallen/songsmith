@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#1b1c2e" />
+  <meta name="theme-color" content="#0a1024" />
   <title>Songsmith</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
@@ -11,101 +11,162 @@
 </head>
 <body>
 
+  <!-- Fixed ambient background — never scrolls with content -->
+  <div class="bg-decor" aria-hidden="true"></div>
+
   <!-- Login -->
   <section id="login-view" class="login-view hidden">
-    <form id="login-form" class="login-card">
+    <form id="login-form" class="glass login-card">
       <h1>Songsmith</h1>
       <p class="muted">Sign in to your workspace.</p>
       <input id="login-username" type="text" placeholder="Username" autocomplete="username" required />
       <input id="login-password" type="password" placeholder="Password" autocomplete="current-password" required />
-      <button type="submit">Sign in</button>
+      <button type="submit" class="primary-btn">Sign in</button>
       <p id="login-error" class="error hidden"></p>
     </form>
   </section>
 
   <!-- App -->
   <div id="app-view" class="app-view hidden">
-    <header class="topbar">
-      <div class="topbar-left">
-        <strong class="brand">Songsmith</strong>
-        <input id="draft-title" class="draft-title" placeholder="Untitled" />
-      </div>
-      <div class="topbar-right">
-        <select id="draft-select" class="draft-select" title="Your drafts"></select>
-        <button id="new-draft-btn" class="icon-btn" title="New song">+ New</button>
-        <span id="save-status" class="save-status muted">saved</span>
-        <button id="logout-btn" class="icon-btn" title="Sign out">Sign out</button>
-      </div>
-    </header>
 
-    <main class="workspace">
-      <!-- Sources -->
-      <aside class="sources-pane">
-        <div class="pane-head">
-          <span>Sources</span>
-          <div class="pane-head-actions">
-            <select id="source-mode" class="source-mode">
-              <option value="library">Library (all sources)</option>
-              <option value="poetry_random">Public-domain poems</option>
-              <option value="my_texts">My texts</option>
-            </select>
-            <button id="filter-btn" class="icon-btn" title="Choose which sources feed the blend">Filter</button>
-            <button id="add-text-btn" class="icon-btn" title="Import your own text">+ Text</button>
-            <button id="shuffle-btn" class="icon-btn" title="Shuffle">Shuffle</button>
+    <!-- ===== Write view ===== -->
+    <section id="view-write" class="view view-write">
+      <header class="topbar glass">
+        <div class="topbar-title">
+          <input id="draft-title" class="draft-title" placeholder="Untitled" />
+          <span id="save-status" class="save-status muted">saved</span>
+        </div>
+        <div class="topbar-menu-wrap">
+          <button id="menu-btn" class="icon-btn round" title="Menu" aria-haspopup="true">⋯</button>
+          <div id="menu-dropdown" class="menu-dropdown glass hidden">
+            <button id="new-draft-btn" type="button">New song</button>
+            <button id="logout-btn" type="button">Sign out</button>
           </div>
         </div>
-        <div id="source-list" class="source-list"></div>
-      </aside>
+      </header>
 
-      <!-- Scratchpad -->
-      <section class="scratch-pane">
-        <div id="scratchpad" class="scratchpad" contenteditable="true" spellcheck="true"
-             data-placeholder="Tap or drag a phrase to bring it in. Tap any word for rhymes &amp; synonyms."></div>
+      <div class="chip-row" id="chip-row">
+        <button id="mode-pill" class="pill active" type="button" data-mode="library">All voices</button>
+        <button id="filter-btn" class="pill" type="button" title="Choose which sources feed the blend">Filter</button>
+        <button id="add-text-btn" class="pill" type="button" title="Import your own text">+ Text</button>
+        <button id="shuffle-btn" class="pill" type="button" title="Shuffle">Shuffle</button>
+      </div>
 
-        <!-- Ambient "what follows" strip -->
-        <div class="follow-strip" id="follow-strip">
-          <span class="follow-label">next&nbsp;&rsaquo;</span>
-          <div id="follow-chips" class="follow-chips"></div>
+      <div id="mode-menu" class="mode-menu glass hidden">
+        <button type="button" data-mode="library">Library (all sources)</button>
+        <button type="button" data-mode="poetry_random">Public-domain poems</button>
+        <button type="button" data-mode="my_texts">My texts</button>
+      </div>
+
+      <div class="workspace">
+        <div class="left-col">
+          <div id="source-list" class="source-list"></div>
         </div>
-      </section>
 
-      <!-- Pinned word-tools panel (desktop, when pinned) -->
-      <aside id="tools-panel" class="tools-panel hidden"></aside>
-    </main>
+        <section class="scratch-pane">
+          <div id="scratchpad" class="scratchpad" contenteditable="true" spellcheck="true"
+               data-placeholder="Tap a phrase above to pull it in. Tap any word for rhymes."></div>
 
-    <!-- Floating word-tools popup (Option B) -->
-    <div id="word-popup" class="word-popup hidden"></div>
+          <!-- Ambient "what follows" strip -->
+          <div class="follow-strip hidden" id="follow-strip">
+            <span class="follow-label">next&nbsp;&rsaquo;</span>
+            <div id="follow-chips" class="follow-chips"></div>
+          </div>
+        </section>
 
-    <!-- Import-your-own-text modal -->
-    <div id="text-modal" class="modal hidden">
-      <div class="modal-card">
-        <h2>Import a text</h2>
-        <p class="muted">Paste anything — lyrics, a poem, a chapter, an article, your own writing. It becomes cut-up source material.</p>
-        <input id="text-title" placeholder="Title (e.g. On the Road — Kerouac)" />
-        <input id="text-author" placeholder="Author / source (optional)" />
-        <textarea id="text-body" rows="10" placeholder="Paste your text here…"></textarea>
-        <p id="text-error" class="error hidden"></p>
-        <div class="modal-actions">
-          <button id="text-cancel" class="icon-btn">Cancel</button>
-          <button id="text-save" class="primary-btn">Save text</button>
+        <!-- Persistent word-tools panel (desktop only) -->
+        <aside id="tools-panel" class="tools-panel glass">
+          <p class="muted tools-hint">Select a word for rhymes &amp; synonyms.</p>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ===== Forge view (placeholder) ===== -->
+    <section id="view-forge" class="view hidden">
+      <header class="topbar glass"><h2 class="view-title">Forge</h2></header>
+      <div class="view-body">
+        <div class="glass placeholder-card">
+          <h3>Forge — coming in the next update</h3>
+          <p class="muted">Deal lines from your library, lock the words you love, re-roll the rest.</p>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Source-filter modal -->
-    <div id="filter-modal" class="modal hidden">
-      <div class="modal-card">
-        <h2>Choose sources</h2>
-        <p class="muted">Pick which voices feed the blend. Select all (or none) for everything.</p>
-        <div class="filter-top">
-          <button id="filter-all" class="icon-btn">Select all</button>
-          <button id="filter-none" class="icon-btn">Clear</button>
+    <!-- ===== Tray view (placeholder) ===== -->
+    <section id="view-tray" class="view hidden">
+      <header class="topbar glass"><h2 class="view-title">Tray</h2></header>
+      <div class="view-body">
+        <div class="glass placeholder-card">
+          <h3>Tray — coming in the next update</h3>
+          <p class="muted">Keep phrases you love across songs.</p>
         </div>
-        <div id="filter-list" class="filter-list"></div>
-        <div class="modal-actions">
-          <button id="filter-cancel" class="icon-btn">Cancel</button>
-          <button id="filter-apply" class="primary-btn">Apply</button>
-        </div>
+      </div>
+    </section>
+
+    <!-- ===== Songs view ===== -->
+    <section id="view-songs" class="view hidden">
+      <header class="topbar glass">
+        <h2 class="view-title">Songs</h2>
+        <button id="songs-new-btn" class="pill active" type="button">+ New song</button>
+      </header>
+      <div class="view-body">
+        <div id="drafts-list" class="drafts-list"></div>
+      </div>
+    </section>
+
+    <!-- ===== Bottom tab bar ===== -->
+    <nav class="tabbar glass" id="tabbar">
+      <button class="tab active" type="button" data-view="write" title="Write">
+        <span class="tab-icon" aria-hidden="true">✎</span><span class="tab-label">Write</span>
+      </button>
+      <button class="tab" type="button" data-view="forge" title="Forge">
+        <span class="tab-icon" aria-hidden="true">🔥</span><span class="tab-label">Forge</span>
+      </button>
+      <button class="tab" type="button" data-view="tray" title="Tray">
+        <span class="tab-icon" aria-hidden="true">♡</span><span class="tab-label">Tray</span>
+      </button>
+      <button class="tab" type="button" data-view="songs" title="Songs">
+        <span class="tab-icon" aria-hidden="true">▤</span><span class="tab-label">Songs</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Word-tools bottom sheet (mobile) -->
+  <div id="sheet-backdrop" class="sheet-backdrop"></div>
+  <div id="word-sheet" class="word-sheet glass">
+    <button id="sheet-handle" class="sheet-handle" type="button" aria-label="Close"></button>
+    <div id="sheet-content" class="sheet-content"></div>
+  </div>
+
+  <!-- Import-your-own-text modal -->
+  <div id="text-modal" class="modal hidden">
+    <div class="glass modal-card">
+      <h2>Import a text</h2>
+      <p class="muted">Paste anything — lyrics, a poem, a chapter, an article, your own writing. It becomes cut-up source material.</p>
+      <input id="text-title" placeholder="Title (e.g. On the Road — Kerouac)" />
+      <input id="text-author" placeholder="Author / source (optional)" />
+      <textarea id="text-body" rows="10" placeholder="Paste your text here…"></textarea>
+      <p id="text-error" class="error hidden"></p>
+      <div class="modal-actions">
+        <button id="text-cancel" class="icon-btn" type="button">Cancel</button>
+        <button id="text-save" class="primary-btn" type="button">Save text</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Source-filter modal -->
+  <div id="filter-modal" class="modal hidden">
+    <div class="glass modal-card">
+      <h2>Choose sources</h2>
+      <p class="muted">Pick which voices feed the blend. Select all (or none) for everything.</p>
+      <div class="filter-top">
+        <button id="filter-all" class="icon-btn" type="button">Select all</button>
+        <button id="filter-none" class="icon-btn" type="button">Clear</button>
+      </div>
+      <div id="filter-list" class="filter-list"></div>
+      <div class="modal-actions">
+        <button id="filter-cancel" class="icon-btn" type="button">Cancel</button>
+        <button id="filter-apply" class="primary-btn" type="button">Apply</button>
       </div>
     </div>
   </div>
