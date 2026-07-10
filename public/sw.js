@@ -1,6 +1,6 @@
 // Minimal service worker: caches the app shell so the UI loads offline.
 // API calls (api/*) are always network — never cached — so data stays fresh.
-const CACHE = 'songsmith-v16';
+const CACHE = 'songsmith-v17';
 const SHELL = [
   '.', 'index.html', 'css/app.css', 'js/api.js', 'js/app.js', 'manifest.webmanifest',
 ];

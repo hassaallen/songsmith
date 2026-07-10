@@ -42,7 +42,7 @@
     trayList: $('tray-list'), trayBadge: $('tray-badge'),
 
     forgeWordsPill: $('forge-words-pill'), forgeNotice: $('forge-notice'),
-    forgeLineEls: [$('forge-line-0'), $('forge-line-1')],
+    forgeLineEls: [$('forge-line-0'), $('forge-line-1'), $('forge-line-2')],
     forgeBench: $('forge-bench'), benchPills: $('bench-pills'),
     benchClearBtn: $('bench-clear-btn'), benchTosongBtn: $('bench-tosong-btn'), benchKeepBtn: $('bench-keep-btn'),
     forgeLineCards: null, // filled in after el is built (querySelectorAll)
@@ -1276,14 +1276,15 @@
   // this section so it's easy to retune independently of the rest of the app.
   const FORGE_WORD_STEPS = [4, 5, 6, 7, 8];
   const FORGE_WORDS_KEY = 'songsmith.forgewords';
+  const FORGE_LINE3_TARGET = 4; // third roll box is always a fixed 4 words
 
   let forgeWordsTarget = readForgeWords();
   let forgePool = [];          // [{ t, a }] — in-memory pool fetched from forge.php
   let forgePoolReady = false;
   let forgeInitialized = false; // has the tab been auto-dealt once already
   let forgeLoading = false;
-  // forgeLines[lineIndex] = [{ t, a, locked }]
-  let forgeLines = [[], []];
+  // forgeLines[lineIndex] = [{ t, a, benched }] — one entry per single word
+  let forgeLines = [[], [], []];
   let forgePopoverTarget = null; // { lineIndex, pillIndex } currently open, or null
 
   function readForgeWords() {
@@ -1298,50 +1299,38 @@
 
   function forgeWordCount(text) { return text.trim().split(/\s+/).filter(Boolean).length; }
   function forgeChunkKey(c) { return c.t.toLowerCase() + '|' + (c.a || ''); }
+  function forgeLineTargets() { return [forgeWordsTarget, forgeWordsTarget, FORGE_LINE3_TARGET]; }
 
   // ---- pure dealing logic (retune here) ----
-  // Deals two fresh lines from `pool`, each accumulating chunks until its
-  // word count reaches `wordsTarget`. A chunk (by text+author) is never used
-  // twice across the two lines in a single deal.
-  function forgeDealTwoLines(pool, wordsTarget) {
+  // Deals fresh lines from `pool`, one per entry in `targets`. Each line
+  // accumulates pool chunks (which may themselves be 1–3 word runs) until its
+  // word count reaches its target, then splits every chunk into individual
+  // single-word pills — words from the same run stay adjacent so the
+  // contiguity flavour survives even though each word is its own pill.
+  // Overshoot past the target is trimmed from the trailing words. A chunk
+  // (by text+author) is never dealt twice across the lines in one deal.
+  function forgeDealLines(pool, targets) {
     const used = new Set();
-    const lines = [[], []];
+    const lines = targets.map(() => []);
     if (!pool.length) return lines;
-    for (let li = 0; li < 2; li++) {
-      let total = 0;
+    for (let li = 0; li < targets.length; li++) {
+      const target = targets[li];
+      let words = [];
       let guard = 0;
-      while (total < wordsTarget && guard < 300) {
+      while (words.length < target && guard < 300) {
         guard++;
         const cand = pool[Math.floor(Math.random() * pool.length)];
         const key = forgeChunkKey(cand);
         if (used.has(key)) continue;
         used.add(key);
-        lines[li].push({ t: cand.t, a: cand.a, locked: false });
-        total += forgeWordCount(cand.t);
+        cand.t.trim().split(/\s+/).filter(Boolean).forEach((w) => {
+          words.push({ t: w, a: cand.a, benched: false });
+        });
       }
+      if (words.length > target) words = words.slice(0, target);
+      lines[li] = words;
     }
     return lines;
-  }
-
-  // Replaces every unlocked pill in-place with a random pool chunk not already
-  // in use (by locked pills or other freshly-rolled pills); locked pills and
-  // their position are untouched.
-  function forgeRerollUnlocked(lines, pool) {
-    if (!pool.length) return lines;
-    const used = new Set();
-    lines.forEach((line) => line.forEach((c) => { if (c.locked) used.add(forgeChunkKey(c)); }));
-    return lines.map((line) => line.map((c) => {
-      if (c.locked) return c;
-      let candidate = null, guard = 0;
-      while (guard < 60) {
-        guard++;
-        const cand = pool[Math.floor(Math.random() * pool.length)];
-        const key = forgeChunkKey(cand);
-        if (!used.has(key)) { candidate = cand; used.add(key); break; }
-      }
-      if (!candidate) candidate = pool[Math.floor(Math.random() * pool.length)];
-      return { t: candidate.t, a: candidate.a, locked: false };
-    }));
   }
 
   function lineText(line) { return line.map((c) => c.t).join(' '); }
@@ -1386,21 +1375,22 @@
     fullForgeDeal();
   }
 
-  // [Deal] — full fresh deal: clears locks, fetches a fresh pool, deals anew.
+  // [Deal] — full fresh deal: fetches a fresh pool, deals anew.
   async function fullForgeDeal() {
     try {
       await fetchForgePool();
     } catch (_) { return; } // failure state already shown
-    forgeLines = forgeDealTwoLines(forgePool, forgeWordsTarget);
+    forgeLines = forgeDealLines(forgePool, forgeLineTargets());
     renderForgeLines();
   }
 
   el.forgeDealBtn.addEventListener('click', fullForgeDeal);
 
-  // [⟳ Re-roll] — unlocked pills only, drawn from the in-memory pool.
+  // [⟳ Re-roll] — every pill in every line is replaced; nothing survives a
+  // re-roll (harvesting to the bench is the only way to keep a word).
   el.forgeRerollBtn.addEventListener('click', () => {
     if (!forgePoolReady || forgeLoading) return;
-    forgeLines = forgeRerollUnlocked(forgeLines, forgePool);
+    forgeLines = forgeDealLines(forgePool, forgeLineTargets());
     renderForgeLines();
   });
 
@@ -1426,10 +1416,10 @@
     line.forEach((chunk, pi) => {
       const pill = document.createElement('button');
       pill.type = 'button';
-      pill.className = 'forge-pill' + (chunk.locked ? ' locked' : '');
+      pill.className = 'forge-pill' + (chunk.benched ? ' benched' : '');
       pill.dataset.lineIndex = String(lineIndex);
       pill.dataset.pillIndex = String(pi);
-      pill.innerHTML = (chunk.locked ? '<span class="forge-lock-ico">🔒</span>' : '') +
+      pill.innerHTML = (chunk.benched ? '<span class="forge-benched-ico">✓</span>' : '') +
         `<span>${escapeHtml(chunk.t)}</span>`;
       wireForgePill(pill, lineIndex, pi);
       container.appendChild(pill);
@@ -1465,13 +1455,17 @@
     pill.addEventListener('click', () => {
       if (longPressed) { longPressed = false; return; } // long-press already handled this interaction
       const chunk = forgeLines[lineIndex][pillIndex];
-      chunk.locked = !chunk.locked;
-      if (chunk.locked) benchAdd(chunk); // locking harvests to the bench (unlocking keeps the harvest)
+      chunk.benched = !chunk.benched;
+      if (chunk.benched) {
+        benchAdd(chunk); // first tap harvests to the bench
+      } else {
+        benchRemoveLast(chunk.t); // second tap is a forgiving undo
+      }
       renderForgeLine(lineIndex, forgeLines[lineIndex]);
     });
   }
 
-  // ---- Bench: locked words gather here, persisting across re-rolls and deals ----
+  // ---- Bench: harvested words gather here; unlimited size, duplicates allowed ----
   let benchChunks = (() => {
     try { return JSON.parse(localStorage.getItem('songsmith.forgebench')) || []; }
     catch (_) { return []; }
@@ -1482,9 +1476,22 @@
   }
 
   function benchAdd(chunk) {
-    const key = chunk.t.toLowerCase();
-    if (benchChunks.some((c) => c.t.toLowerCase() === key)) return;
     benchChunks.push({ t: chunk.t, a: chunk.a });
+    benchPersist();
+    renderBench();
+  }
+
+  // Undoes a harvest: drops the LAST bench entry matching `text` (case-
+  // insensitive) rather than trying to track which exact entry a pill added,
+  // since duplicates are now allowed on the bench.
+  function benchRemoveLast(text) {
+    const key = text.toLowerCase();
+    for (let i = benchChunks.length - 1; i >= 0; i--) {
+      if (benchChunks[i].t.toLowerCase() === key) {
+        benchChunks.splice(i, 1);
+        break;
+      }
+    }
     benchPersist();
     renderBench();
   }
@@ -1529,7 +1536,7 @@
         try { pill.setPointerCapture(e.pointerId); } catch (_) {}
       }
       if (!active) return;
-      ev.preventDefault();
+      if (ev.cancelable) ev.preventDefault();
       // Row-aware insertion: place before the first sibling whose row is below
       // the pointer, or whose centre is to the right of it on the same row.
       const siblings = [...el.benchPills.children].filter((p) => p !== pill);
@@ -1545,10 +1552,13 @@
       }
       if (!placed) el.benchPills.appendChild(pill);
     };
+    // Listeners live on document (not the pill) so the drag survives the
+    // pointer leaving the pill before the activation threshold, or pointer
+    // capture failing to take — either way `up` always runs and always tidies up.
     const up = () => {
-      pill.removeEventListener('pointermove', move);
-      pill.removeEventListener('pointerup', up);
-      pill.removeEventListener('pointercancel', up);
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      document.removeEventListener('pointercancel', up);
       if (active) {
         pill.classList.remove('dragging');
         const order = [...el.benchPills.children].map((p) => +p.dataset.bi);
@@ -1557,9 +1567,9 @@
         renderBench();
       }
     };
-    pill.addEventListener('pointermove', move);
-    pill.addEventListener('pointerup', up);
-    pill.addEventListener('pointercancel', up);
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', up);
   }
 
   el.benchClearBtn.addEventListener('click', () => {
@@ -1583,11 +1593,13 @@
 
   // ---- long-press swap popover ----
   function openForgePopover(pillEl, lineIndex, pillIndex) {
-    if (!forgePool.length) return;
+    // Every pill on the board is now a single word, so alternatives offered
+    // must also be single-word pool chunks (they're ~70% of the pool).
+    const singleWordPool = forgePool.filter((c) => forgeWordCount(c.t) === 1);
+    if (!singleWordPool.length) return;
     forgePopoverTarget = { lineIndex, pillIndex };
     const current = forgeChunkKey(forgeLines[lineIndex][pillIndex]);
-    const inUse = new Set(forgeLines.flat().map(forgeChunkKey));
-    const candidates = shuffle([...forgePool]).filter((c) => forgeChunkKey(c) !== current);
+    const candidates = shuffle([...singleWordPool]).filter((c) => forgeChunkKey(c) !== current);
     const alts = [];
     const seen = new Set();
     for (const c of candidates) {
@@ -1609,7 +1621,7 @@
       b.textContent = c.t;
       b.addEventListener('click', (e) => {
         e.stopPropagation();
-        forgeLines[lineIndex][pillIndex] = { t: c.t, a: c.a, locked: false };
+        forgeLines[lineIndex][pillIndex] = { t: c.t, a: c.a, benched: false };
         renderForgeLine(lineIndex, forgeLines[lineIndex]);
         closeForgePopover();
       });
@@ -1618,7 +1630,6 @@
 
     el.forgePopover.classList.remove('hidden');
     positionForgePopover(pillEl);
-    void inUse; // kept for readability of intent above; not required to filter further
   }
 
   function positionForgePopover(pillEl) {
@@ -1681,7 +1692,7 @@
   }
 
   // ---------- Version (shown in the ... menu; must match sw.js CACHE) ----------
-  const APP_VERSION = 'v2.7';
+  const APP_VERSION = 'v2.8';
   const versionEl = $('app-version');
   if (versionEl) versionEl.textContent = 'Songsmith ' + APP_VERSION;
 

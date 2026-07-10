@@ -366,10 +366,10 @@ input, textarea { background: rgba(255,255,255,0.06); }
   gap: 5px; user-select: none; -webkit-user-select: none;
 }
 .forge-pill:hover { border-color: var(--accent); }
-.forge-pill.locked {
+.forge-pill.benched {
   background: var(--pill-active-bg); border-color: var(--pill-active-border); font-weight: 500;
 }
-.forge-pill .forge-lock-ico { font-size: 11px; line-height: 1; opacity: 0.85; }
+.forge-pill .forge-benched-ico { font-size: 11px; line-height: 1; opacity: 0.85; }
 .forge-line-actions { display: flex; align-items: center; gap: 8px; }
 .forge-tosong-btn { font-size: 13px; }
 .forge-keep-btn.kept { color: var(--accent); border-color: var(--pill-active-border); background: var(--pill-active-bg); }
@@ -377,7 +377,7 @@ input, textarea { background: rgba(255,255,255,0.06); }
 .forge-main-actions { display: flex; gap: 10px; justify-content: center; padding-top: 2px; }
 .forge-main-actions .primary-btn, .forge-main-actions .icon-btn { flex: 1; max-width: 220px; text-align: center; }
 
-/* ---------- Forge bench (harvested locked words) ---------- */
+/* ---------- Forge bench (harvested words) ---------- */
 .forge-bench { border-radius: var(--radius-card); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
 .forge-bench-head {
   display: flex; align-items: center; justify-content: space-between;

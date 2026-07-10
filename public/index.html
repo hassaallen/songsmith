@@ -119,6 +119,13 @@
               <button type="button" class="icon-btn round forge-keep-btn" data-line-index="1" title="Keep line" aria-label="Keep line">♡</button>
             </div>
           </div>
+          <div class="glass forge-line-card" data-line-index="2">
+            <div class="forge-pills" id="forge-line-2"></div>
+            <div class="forge-line-actions">
+              <button type="button" class="pill forge-tosong-btn" data-line-index="2">→ Song</button>
+              <button type="button" class="icon-btn round forge-keep-btn" data-line-index="2" title="Keep line" aria-label="Keep line">♡</button>
+            </div>
+          </div>
         </div>
 
         <div class="forge-main-actions">
@@ -126,17 +133,17 @@
           <button id="forge-deal-btn" class="icon-btn" type="button">Deal</button>
         </div>
 
-        <!-- Bench: locked words gather here across deals; build a line, send it on -->
+        <!-- Bench: harvested words gather here across deals; build a line, send it on -->
         <div class="glass forge-bench hidden" id="forge-bench">
           <div class="forge-bench-head">
-            <span>Bench — words you've locked</span>
+            <span>Bench — words you've harvested</span>
             <button id="bench-clear-btn" type="button" title="Empty the bench">Clear</button>
           </div>
           <div id="bench-pills" class="forge-pills"></div>
           <div class="forge-line-actions">
             <button type="button" class="pill" id="bench-tosong-btn">→ Song</button>
             <button type="button" class="icon-btn round" id="bench-keep-btn" title="Keep bench line" aria-label="Keep bench line">♡</button>
-            <span class="bench-hint muted">drag to reorder · ✕ removes</span>
+            <span class="bench-hint muted">tap words to bench · drag to reorder · ✕ removes</span>
           </div>
         </div>
       </div>
