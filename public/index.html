@@ -95,16 +95,41 @@
       </div>
     </section>
 
-    <!-- ===== Forge view (placeholder) ===== -->
+    <!-- ===== Forge view ===== -->
     <section id="view-forge" class="view hidden">
-      <header class="topbar glass"><h2 class="view-title">Forge</h2></header>
-      <div class="view-body">
-        <div class="glass placeholder-card">
-          <h3>Forge — coming in the next update</h3>
-          <p class="muted">Deal lines from your library, lock the words you love, re-roll the rest.</p>
+      <header class="topbar glass">
+        <h2 class="view-title">Forge</h2>
+        <button id="forge-words-pill" class="pill" type="button" title="Words per line — tap to change">6 words</button>
+      </header>
+      <div class="view-body forge-body">
+        <div id="forge-notice" class="source-notice hidden"></div>
+
+        <div id="forge-lines" class="forge-lines">
+          <div class="glass forge-line-card" data-line-index="0">
+            <div class="forge-pills" id="forge-line-0"></div>
+            <div class="forge-line-actions">
+              <button type="button" class="pill forge-tosong-btn" data-line-index="0">→ Song</button>
+              <button type="button" class="icon-btn round forge-keep-btn" data-line-index="0" title="Keep line" aria-label="Keep line">♡</button>
+            </div>
+          </div>
+          <div class="glass forge-line-card" data-line-index="1">
+            <div class="forge-pills" id="forge-line-1"></div>
+            <div class="forge-line-actions">
+              <button type="button" class="pill forge-tosong-btn" data-line-index="1">→ Song</button>
+              <button type="button" class="icon-btn round forge-keep-btn" data-line-index="1" title="Keep line" aria-label="Keep line">♡</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="forge-main-actions">
+          <button id="forge-reroll-btn" class="primary-btn" type="button">⟳ Re-roll</button>
+          <button id="forge-deal-btn" class="icon-btn" type="button">Deal</button>
         </div>
       </div>
     </section>
+
+    <!-- Forge pill swap popover (long-press alternatives) -->
+    <div id="forge-popover" class="glass forge-popover hidden"></div>
 
     <!-- ===== Tray view ===== -->
     <section id="view-tray" class="view hidden">

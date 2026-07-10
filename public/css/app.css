@@ -347,11 +347,45 @@ input, textarea { background: rgba(255,255,255,0.06); }
 .tab-label { font-size: 10px; }
 .tab.active { color: var(--accent); }
 
-/* ---------- Placeholder views (Forge) ---------- */
+/* ---------- Views (shared body layout) ---------- */
 .view-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .placeholder-card { border-radius: var(--radius-card); padding: 20px; }
 .placeholder-card h3 { margin: 0 0 6px; font-size: 17px; }
 .placeholder-card p { margin: 0; font-size: 14px; }
+
+/* ---------- Forge ---------- */
+.forge-body { gap: 14px; }
+.forge-lines { display: flex; flex-direction: column; gap: 12px; }
+.forge-line-card {
+  border-radius: var(--radius-card); padding: 14px; display: flex; flex-direction: column; gap: 12px;
+}
+.forge-pills { display: flex; flex-wrap: wrap; gap: 8px; min-height: 40px; }
+.forge-pill {
+  background: var(--card-bg); border: 1px solid var(--card-border); color: var(--ink);
+  border-radius: 10px; padding: 7px 12px; font-size: 15px; min-height: 40px; display: inline-flex; align-items: center;
+  gap: 6px; user-select: none; -webkit-user-select: none;
+}
+.forge-pill:hover { border-color: var(--accent); }
+.forge-pill.locked {
+  background: var(--pill-active-bg); border-color: var(--pill-active-border); font-weight: 500;
+}
+.forge-pill .forge-lock-ico { font-size: 11px; line-height: 1; opacity: 0.85; }
+.forge-line-actions { display: flex; align-items: center; gap: 8px; }
+.forge-tosong-btn { font-size: 13px; }
+.forge-keep-btn.kept { color: var(--accent); border-color: var(--pill-active-border); background: var(--pill-active-bg); }
+
+.forge-main-actions { display: flex; gap: 10px; justify-content: center; padding-top: 2px; }
+.forge-main-actions .primary-btn, .forge-main-actions .icon-btn { flex: 1; max-width: 220px; text-align: center; }
+
+.forge-popover {
+  position: fixed; z-index: 70; border-radius: var(--radius-card); padding: 8px;
+  display: flex; flex-wrap: wrap; gap: 6px; max-width: 260px;
+}
+.forge-popover .forge-alt-btn {
+  background: var(--card-bg); border: 1px solid var(--card-border); color: var(--ink);
+  border-radius: var(--radius-pill); padding: 7px 12px; font-size: 13px; min-height: 36px;
+}
+.forge-popover .forge-alt-btn:hover { background: var(--pill-active-bg); border-color: var(--pill-active-border); }
 
 /* ---------- Tray view ---------- */
 .tray-list { display: flex; flex-direction: column; gap: 10px; }

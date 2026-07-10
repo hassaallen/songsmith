@@ -40,7 +40,14 @@
     draftsList: $('drafts-list'), songsNewBtn: $('songs-new-btn'),
 
     trayList: $('tray-list'), trayBadge: $('tray-badge'),
+
+    forgeWordsPill: $('forge-words-pill'), forgeNotice: $('forge-notice'),
+    forgeLineEls: [$('forge-line-0'), $('forge-line-1')],
+    forgeLineCards: null, // filled in after el is built (querySelectorAll)
+    forgeRerollBtn: $('forge-reroll-btn'), forgeDealBtn: $('forge-deal-btn'),
+    forgePopover: $('forge-popover'),
   };
+  el.forgeLineCards = [...document.querySelectorAll('.forge-line-card')];
 
   const TOOLS_HINT = '<p class="muted tools-hint">Select a word for rhymes &amp; synonyms.</p>';
   const MODE_LABELS = { library: 'All voices', poetry_random: 'Poems', my_texts: 'My texts' };
@@ -163,7 +170,7 @@
     [el.viewWrite, el.viewForge, el.viewTray, el.viewSongs].forEach((v) => v.classList.add('hidden'));
     el.tabbar.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === name));
     if (name === 'write') el.viewWrite.classList.remove('hidden');
-    else if (name === 'forge') el.viewForge.classList.remove('hidden');
+    else if (name === 'forge') { el.viewForge.classList.remove('hidden'); ensureForgeReady(); }
     else if (name === 'tray') { el.viewTray.classList.remove('hidden'); loadTray().then(renderTrayList); }
     else if (name === 'songs') { el.viewSongs.classList.remove('hidden'); renderDraftsList(); }
   }
@@ -1262,6 +1269,292 @@
     applyRhymeDecorations(freshEndWords, groupOf);
   }
 
+  // ---------- Forge ----------
+  // Liptikl-style cut-up line dealer. All dealing/re-roll behaviour lives in
+  // this section so it's easy to retune independently of the rest of the app.
+  const FORGE_WORD_STEPS = [4, 5, 6, 7, 8];
+  const FORGE_WORDS_KEY = 'songsmith.forgewords';
+
+  let forgeWordsTarget = readForgeWords();
+  let forgePool = [];          // [{ t, a }] — in-memory pool fetched from forge.php
+  let forgePoolReady = false;
+  let forgeInitialized = false; // has the tab been auto-dealt once already
+  let forgeLoading = false;
+  // forgeLines[lineIndex] = [{ t, a, locked }]
+  let forgeLines = [[], []];
+  let forgePopoverTarget = null; // { lineIndex, pillIndex } currently open, or null
+
+  function readForgeWords() {
+    try {
+      const v = parseInt(localStorage.getItem(FORGE_WORDS_KEY), 10);
+      return FORGE_WORD_STEPS.includes(v) ? v : 6;
+    } catch (_) { return 6; }
+  }
+  function writeForgeWords(v) {
+    try { localStorage.setItem(FORGE_WORDS_KEY, String(v)); } catch (_) {}
+  }
+
+  function forgeWordCount(text) { return text.trim().split(/\s+/).filter(Boolean).length; }
+  function forgeChunkKey(c) { return c.t.toLowerCase() + '|' + (c.a || ''); }
+
+  // ---- pure dealing logic (retune here) ----
+  // Deals two fresh lines from `pool`, each accumulating chunks until its
+  // word count reaches `wordsTarget`. A chunk (by text+author) is never used
+  // twice across the two lines in a single deal.
+  function forgeDealTwoLines(pool, wordsTarget) {
+    const used = new Set();
+    const lines = [[], []];
+    if (!pool.length) return lines;
+    for (let li = 0; li < 2; li++) {
+      let total = 0;
+      let guard = 0;
+      while (total < wordsTarget && guard < 300) {
+        guard++;
+        const cand = pool[Math.floor(Math.random() * pool.length)];
+        const key = forgeChunkKey(cand);
+        if (used.has(key)) continue;
+        used.add(key);
+        lines[li].push({ t: cand.t, a: cand.a, locked: false });
+        total += forgeWordCount(cand.t);
+      }
+    }
+    return lines;
+  }
+
+  // Replaces every unlocked pill in-place with a random pool chunk not already
+  // in use (by locked pills or other freshly-rolled pills); locked pills and
+  // their position are untouched.
+  function forgeRerollUnlocked(lines, pool) {
+    if (!pool.length) return lines;
+    const used = new Set();
+    lines.forEach((line) => line.forEach((c) => { if (c.locked) used.add(forgeChunkKey(c)); }));
+    return lines.map((line) => line.map((c) => {
+      if (c.locked) return c;
+      let candidate = null, guard = 0;
+      while (guard < 60) {
+        guard++;
+        const cand = pool[Math.floor(Math.random() * pool.length)];
+        const key = forgeChunkKey(cand);
+        if (!used.has(key)) { candidate = cand; used.add(key); break; }
+      }
+      if (!candidate) candidate = pool[Math.floor(Math.random() * pool.length)];
+      return { t: candidate.t, a: candidate.a, locked: false };
+    }));
+  }
+
+  function lineText(line) { return line.map((c) => c.t).join(' '); }
+
+  // ---- pool fetch ----
+  async function fetchForgePool() {
+    hideForgeNotice();
+    forgeLoading = true;
+    try {
+      // selectedSources is read live here (not copied at tab-open time) so the
+      // pool always reflects whatever the Write-tab filter currently is.
+      const { chunks } = await API.forgePool(150, selectedSources);
+      forgePool = chunks;
+      forgePoolReady = true;
+    } catch (err) {
+      forgePoolReady = false;
+      showForgeFailure();
+      throw err;
+    } finally {
+      forgeLoading = false;
+    }
+  }
+
+  function showForgeFailure() {
+    el.forgeNotice.innerHTML = '<span>Couldn’t load the Forge pool.</span>' +
+      '<button type="button" class="forge-notice-retry">Retry</button>';
+    el.forgeNotice.classList.remove('hidden');
+    el.forgeNotice.querySelector('.forge-notice-retry').addEventListener('click', () => {
+      fullForgeDeal();
+    });
+  }
+  function hideForgeNotice() {
+    el.forgeNotice.classList.add('hidden');
+    el.forgeNotice.innerHTML = '';
+  }
+
+  // ---- tab lifecycle ----
+  function ensureForgeReady() {
+    if (forgeInitialized) return;
+    forgeInitialized = true;
+    fullForgeDeal();
+  }
+
+  // [Deal] — full fresh deal: clears locks, fetches a fresh pool, deals anew.
+  async function fullForgeDeal() {
+    try {
+      await fetchForgePool();
+    } catch (_) { return; } // failure state already shown
+    forgeLines = forgeDealTwoLines(forgePool, forgeWordsTarget);
+    renderForgeLines();
+  }
+
+  el.forgeDealBtn.addEventListener('click', fullForgeDeal);
+
+  // [⟳ Re-roll] — unlocked pills only, drawn from the in-memory pool.
+  el.forgeRerollBtn.addEventListener('click', () => {
+    if (!forgePoolReady || forgeLoading) return;
+    forgeLines = forgeRerollUnlocked(forgeLines, forgePool);
+    renderForgeLines();
+  });
+
+  // ---- words-per-line pill ----
+  function updateForgeWordsPill() {
+    el.forgeWordsPill.textContent = forgeWordsTarget + ' word' + (forgeWordsTarget === 1 ? '' : 's');
+  }
+  el.forgeWordsPill.addEventListener('click', () => {
+    const idx = FORGE_WORD_STEPS.indexOf(forgeWordsTarget);
+    forgeWordsTarget = FORGE_WORD_STEPS[(idx + 1) % FORGE_WORD_STEPS.length];
+    writeForgeWords(forgeWordsTarget);
+    updateForgeWordsPill();
+  });
+
+  // ---- rendering ----
+  function renderForgeLines() {
+    forgeLines.forEach((line, li) => renderForgeLine(li, line));
+  }
+
+  function renderForgeLine(lineIndex, line) {
+    const container = el.forgeLineEls[lineIndex];
+    container.innerHTML = '';
+    line.forEach((chunk, pi) => {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'forge-pill' + (chunk.locked ? ' locked' : '');
+      pill.dataset.lineIndex = String(lineIndex);
+      pill.dataset.pillIndex = String(pi);
+      pill.innerHTML = (chunk.locked ? '<span class="forge-lock-ico">🔒</span>' : '') +
+        `<span>${escapeHtml(chunk.t)}</span>`;
+      wireForgePill(pill, lineIndex, pi);
+      container.appendChild(pill);
+    });
+    // The line's text just changed underneath it — any previous "kept" state
+    // on this line's ♡ button no longer reflects what → Song / ♡ would act on.
+    const card = el.forgeLineCards[lineIndex];
+    const keepBtn = card && card.querySelector('.forge-keep-btn');
+    if (keepBtn) { keepBtn.disabled = false; keepBtn.classList.remove('kept'); keepBtn.textContent = '♡'; }
+  }
+
+  function wireForgePill(pill, lineIndex, pillIndex) {
+    let pressTimer = null;
+    let longPressed = false;
+
+    const openAlts = () => {
+      longPressed = true;
+      openForgePopover(pill, lineIndex, pillIndex);
+    };
+
+    pill.addEventListener('touchstart', () => {
+      longPressed = false;
+      clearTimeout(pressTimer);
+      pressTimer = setTimeout(openAlts, 500);
+    }, { passive: true });
+    pill.addEventListener('touchend', () => clearTimeout(pressTimer));
+    pill.addEventListener('touchmove', () => clearTimeout(pressTimer));
+    pill.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      openAlts();
+    });
+
+    pill.addEventListener('click', () => {
+      if (longPressed) { longPressed = false; return; } // long-press already handled this interaction
+      forgeLines[lineIndex][pillIndex].locked = !forgeLines[lineIndex][pillIndex].locked;
+      renderForgeLine(lineIndex, forgeLines[lineIndex]);
+    });
+  }
+
+  // ---- long-press swap popover ----
+  function openForgePopover(pillEl, lineIndex, pillIndex) {
+    if (!forgePool.length) return;
+    forgePopoverTarget = { lineIndex, pillIndex };
+    const current = forgeChunkKey(forgeLines[lineIndex][pillIndex]);
+    const inUse = new Set(forgeLines.flat().map(forgeChunkKey));
+    const candidates = shuffle([...forgePool]).filter((c) => forgeChunkKey(c) !== current);
+    const alts = [];
+    const seen = new Set();
+    for (const c of candidates) {
+      const key = forgeChunkKey(c);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      alts.push(c);
+      if (alts.length >= 6) break;
+    }
+    // If the pool is small and everything collided with in-use chunks, still
+    // offer whatever distinct alternatives exist rather than an empty sheet.
+    if (!alts.length) return;
+
+    el.forgePopover.innerHTML = '';
+    alts.forEach((c) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'forge-alt-btn';
+      b.textContent = c.t;
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        forgeLines[lineIndex][pillIndex] = { t: c.t, a: c.a, locked: false };
+        renderForgeLine(lineIndex, forgeLines[lineIndex]);
+        closeForgePopover();
+      });
+      el.forgePopover.appendChild(b);
+    });
+
+    el.forgePopover.classList.remove('hidden');
+    positionForgePopover(pillEl);
+    void inUse; // kept for readability of intent above; not required to filter further
+  }
+
+  function positionForgePopover(pillEl) {
+    const r = pillEl.getBoundingClientRect();
+    const pop = el.forgePopover;
+    pop.style.left = '0px'; pop.style.top = '0px'; // reset before measuring
+    const popRect = pop.getBoundingClientRect();
+    let left = r.left;
+    let top = r.bottom + 8;
+    if (left + popRect.width > window.innerWidth - 8) left = window.innerWidth - popRect.width - 8;
+    if (top + popRect.height > window.innerHeight - 8) top = r.top - popRect.height - 8;
+    pop.style.left = Math.max(8, left) + 'px';
+    pop.style.top = Math.max(8, top) + 'px';
+  }
+
+  function closeForgePopover() {
+    forgePopoverTarget = null;
+    el.forgePopover.classList.add('hidden');
+    el.forgePopover.innerHTML = '';
+  }
+  document.addEventListener('click', (e) => {
+    if (!forgePopoverTarget) return;
+    if (el.forgePopover.contains(e.target)) return;
+    if (e.target.closest && e.target.closest('.forge-pill')) return; // its own tap handler manages this
+    closeForgePopover();
+  });
+
+  // ---- per-line → Song / ♡ Keep ----
+  el.forgeLineCards.forEach((card) => {
+    const li = parseInt(card.dataset.lineIndex, 10);
+    const toSongBtn = card.querySelector('.forge-tosong-btn');
+    const keepBtn = card.querySelector('.forge-keep-btn');
+    toSongBtn.addEventListener('click', () => {
+      const text = lineText(forgeLines[li]);
+      if (!text) return;
+      insertFragment(text);
+      showView('write');
+    });
+    keepBtn.addEventListener('click', () => {
+      const text = lineText(forgeLines[li]);
+      if (!text || keepBtn.disabled) return;
+      keepBtn.disabled = true;
+      keepFragment(text, 'forge', () => {
+        keepBtn.classList.add('kept');
+        keepBtn.textContent = '♥';
+      }).catch(() => { keepBtn.disabled = false; });
+    });
+  });
+
+  updateForgeWordsPill();
+
   // ---------- Utilities ----------
   function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
   function escapeHtml(s) { return (s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -1273,7 +1566,7 @@
   }
 
   // ---------- Version (shown in the ... menu; must match sw.js CACHE) ----------
-  const APP_VERSION = 'v2.4';
+  const APP_VERSION = 'v2.5';
   const versionEl = $('app-version');
   if (versionEl) versionEl.textContent = 'Songsmith ' + APP_VERSION;
 

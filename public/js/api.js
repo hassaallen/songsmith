@@ -44,6 +44,9 @@ const API = (() => {
       req('library.php?action=random&n=' + n +
           (sources.length ? '&sources=' + encodeURIComponent(sources.join(',')) : '')),
 
+    forgePool: (n = 150, sources = []) =>
+      req('forge.php?n=' + n + (sources.length ? '&sources=' + encodeURIComponent(sources.join(',')) : '')),
+
     trayList:   ()             => req('tray.php'),
     trayAdd:    (text, source) => req('tray.php', { method: 'POST', body: JSON.stringify({ text, source }) }),
     trayDelete: (id)           => req('tray.php?id=' + id, { method: 'DELETE' }),
