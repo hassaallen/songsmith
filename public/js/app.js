@@ -23,6 +23,7 @@
 
     textModal: $('text-modal'), textTitle: $('text-title'), textAuthor: $('text-author'),
     textBody: $('text-body'), textSave: $('text-save'), textCancel: $('text-cancel'), textError: $('text-error'),
+    textTypeRow: $('text-type-row'),
 
     scratchpad: $('scratchpad'), followStrip: $('follow-strip'), followChips: $('follow-chips'),
 
@@ -385,8 +386,19 @@
   el.shuffleBtn.addEventListener('click', loadSources);
 
   // Import-your-own-text modal
+  function setTextType(type) {
+    el.textTypeRow.querySelectorAll('.pill[data-type]').forEach((p) => p.classList.toggle('active', p.dataset.type === type));
+  }
+  function getTextType() {
+    const active = el.textTypeRow.querySelector('.pill[data-type].active');
+    return active ? active.dataset.type : 'auto';
+  }
+  el.textTypeRow.querySelectorAll('.pill[data-type]').forEach((btn) => {
+    btn.addEventListener('click', () => setTextType(btn.dataset.type));
+  });
   el.addTextBtn.addEventListener('click', () => {
     el.textTitle.value = ''; el.textAuthor.value = ''; el.textBody.value = '';
+    setTextType('auto');
     el.textError.classList.add('hidden');
     el.textModal.classList.remove('hidden');
     el.textTitle.focus();
@@ -398,12 +410,18 @@
     if (!body) { el.textError.textContent = 'Paste some text first.'; el.textError.classList.remove('hidden'); return; }
     el.textSave.disabled = true; el.textSave.textContent = 'Saving…';
     try {
-      await API.createText({
+      const res = await API.createText({
         title: el.textTitle.value.trim() || 'Untitled text',
         author: el.textAuthor.value.trim(),
         body,
+        type: getTextType(),
       });
-      el.textModal.classList.add('hidden');
+      if (res && res.fragments === 0) {
+        el.textError.textContent = 'Saved, but nothing usable could be extracted - check the text.';
+        el.textError.classList.remove('hidden');
+      } else {
+        el.textModal.classList.add('hidden');
+      }
       currentMode = 'my_texts';
       updateModePill();
       await loadSources();
@@ -523,14 +541,21 @@
       el.sourceList.innerHTML = '<p class="source-empty">No texts imported yet. Tap <strong>+ Text</strong> above to paste in lyrics, a poem, a chapter — anything — and cut it up.</p>';
       return;
     }
-    // pull a random text's body and cut into lines/sentences
+    // pull a random text's server-processed fragments (falling back to a
+    // rough split for anything saved before processing existed)
     const pick = texts[Math.floor(Math.random() * texts.length)];
     const { text } = await API.getText(pick.id);
-    const fragments = (text.body || '')
-      .split(/[\n.;:!?]+/)
+    const fragments = (text.fragments || '')
+      .split('\n')
       .map((s) => s.trim())
-      .filter((s) => s.length > 6);
-    renderSourceLines(shuffle(fragments).slice(0, 40).map((t) => ({ text: t, meta: `${text.title}`, type: null })));
+      .filter(Boolean);
+    if (!fragments.length) {
+      (text.body || '').split(/[\n.;:!?]+/).forEach((s) => {
+        s = s.trim();
+        if (s.length > 6) fragments.push(s);
+      });
+    }
+    renderSourceLines(shuffle(fragments).slice(0, 40).map((t) => ({ text: t, meta: `${text.title}`, type: text.type || null })));
   }
 
   function renderSourceLines(items) {
@@ -1692,7 +1717,7 @@
   }
 
   // ---------- Version (shown in the ... menu; must match sw.js CACHE) ----------
-  const APP_VERSION = 'v2.9';
+  const APP_VERSION = 'v2.10';
   const versionEl = $('app-version');
   if (versionEl) versionEl.textContent = 'Songsmith ' + APP_VERSION;
 

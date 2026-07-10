@@ -8,26 +8,10 @@
 
 require __DIR__ . '/helpers.php';
 require __DIR__ . '/db.php';
+require __DIR__ . '/textproc.php';
 $uid = require_auth();
 
 const MY_TEXTS_SLUG = 'my-texts';
-
-function my_texts_fragments(int $uid): array
-{
-    $stmt = db()->prepare('SELECT title, body FROM texts WHERE user_id = ?');
-    $stmt->execute([$uid]);
-    $frags = [];
-    foreach ($stmt->fetchAll() as $t) {
-        $pieces = preg_split('/[\n.;:!?]+/', (string) $t['body']);
-        foreach ($pieces as $p) {
-            $p = trim($p);
-            if (mb_strlen($p) >= 9 && mb_strlen($p) <= 120) {
-                $frags[] = ['text' => $p, 'title' => $t['title']];
-            }
-        }
-    }
-    return $frags;
-}
 
 // Corpus dir: sibling of the web root, e.g. /home/hassaall/songwriting_corpus/
 $dir = realpath(__DIR__ . '/../../songwriting_corpus');

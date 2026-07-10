@@ -477,6 +477,7 @@ input, textarea { background: rgba(255,255,255,0.06); }
 .modal-card input::placeholder, .modal-card textarea::placeholder { color: var(--ink-faint); }
 .modal-card input:focus, .modal-card textarea:focus { border-color: var(--accent); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.text-type-row { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ---------- Source filter ---------- */
 .filter-top { display: flex; gap: 8px; }

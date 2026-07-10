@@ -205,6 +205,12 @@
       <p class="muted">Paste anything — lyrics, a poem, a chapter, an article, your own writing. It becomes cut-up source material.</p>
       <input id="text-title" placeholder="Title (e.g. On the Road — Kerouac)" />
       <input id="text-author" placeholder="Author / source (optional)" />
+      <div id="text-type-row" class="text-type-row">
+        <button type="button" class="pill active" data-type="auto">Auto</button>
+        <button type="button" class="pill" data-type="lyric">Lyrics</button>
+        <button type="button" class="pill" data-type="poem">Poem</button>
+        <button type="button" class="pill" data-type="prose">Prose</button>
+      </div>
       <textarea id="text-body" rows="10" placeholder="Paste your text here…" lang="en-AU" spellcheck="true"></textarea>
       <p id="text-error" class="error hidden"></p>
       <div class="modal-actions">

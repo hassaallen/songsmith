@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS drafts (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- The user's own imported source texts (novels, poems) for cut-up material.
+-- type/fragments are populated at save time by public/api/textproc.php
+-- (process_text): type is the resolved segmentation type (never 'auto'),
+-- fragments is the newline-joined, pre-segmented cut-up material.
 CREATE TABLE IF NOT EXISTS texts (
   id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id    INT UNSIGNED NOT NULL,
@@ -34,6 +37,8 @@ CREATE TABLE IF NOT EXISTS texts (
   author     VARCHAR(200) DEFAULT NULL,
   source     VARCHAR(120) DEFAULT NULL,
   body       LONGTEXT     NOT NULL,
+  type       VARCHAR(10)  NOT NULL DEFAULT 'lyric',
+  fragments  LONGTEXT     NULL,
   created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_texts_user (user_id),
