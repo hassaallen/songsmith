@@ -1,6 +1,13 @@
 <!doctype html>
 <html lang="en-AU">
 <head>
+  <script>
+    // The session cookie is Secure-only: over plain http, login appears to work
+    // but no session is kept and every API call fails. Force https immediately.
+    if (location.protocol === 'http:' && !['localhost', '127.0.0.1'].includes(location.hostname)) {
+      location.replace(location.href.replace(/^http:/, 'https:'));
+    }
+  </script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0a1024" />

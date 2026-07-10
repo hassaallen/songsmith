@@ -101,6 +101,12 @@
     el.loginError.classList.add('hidden');
     try {
       await API.login(el.loginUser.value.trim(), el.loginPass.value);
+      // Verify the session cookie actually stuck (it silently won't over plain
+      // http or with cookies blocked) before declaring victory.
+      const check = await API.me();
+      if (!check.authenticated) {
+        throw new Error('Signed in, but the session was not kept. Check you are on https:// and cookies are allowed.');
+      }
       startApp();
     } catch (err) {
       el.loginError.textContent = err.message;
@@ -202,7 +208,9 @@
     const { draft } = await API.getDraft(id);
     currentDraftId = draft.id;
     el.draftTitle.value = draft.title || '';
-    el.scratchpad.innerText = draft.body || '';
+    // textContent (not innerText): keeps \n as literal characters in text nodes,
+    // which the syllable/rhyme line detection depends on. pre-wrap renders them.
+    el.scratchpad.textContent = draft.body || '';
     hideWordTools();
     applyEditMode();
     markSaved();
@@ -214,7 +222,7 @@
   function newDraft() {
     currentDraftId = null;
     el.draftTitle.value = '';
-    el.scratchpad.innerText = '';
+    el.scratchpad.textContent = '';
     hideWordTools();
     applyEditMode();
     markSaved();
@@ -599,6 +607,14 @@
 
   // ---------- Scratchpad: insertion, selection, follow strip ----------
   el.scratchpad.addEventListener('input', () => { markDirty(); scheduleFollow(); scheduleGutter(); });
+  // Enter must produce a literal \n text node — the browser's default (<div>/<br>
+  // blocks) is invisible to the line-based syllable/rhyme detection.
+  el.scratchpad.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      insertTextAtCaret('\n');
+    }
+  });
   el.scratchpad.addEventListener('keyup', onCaretActivity);
   el.scratchpad.addEventListener('mouseup', onCaretActivity);
   el.scratchpad.addEventListener('click', onScratchpadTap);
@@ -677,7 +693,7 @@
     el.scratchpad.focus();
     const sel = window.getSelection();
     if (!sel.rangeCount) {
-      el.scratchpad.innerText += text;
+      el.scratchpad.textContent += text;
     } else {
       const range = sel.getRangeAt(0);
       range.deleteContents();
@@ -1246,7 +1262,7 @@
   }
 
   // ---------- Version (shown in the ... menu; must match sw.js CACHE) ----------
-  const APP_VERSION = 'v2.1';
+  const APP_VERSION = 'v2.2';
   const versionEl = $('app-version');
   if (versionEl) versionEl.textContent = 'Songsmith ' + APP_VERSION;
 
