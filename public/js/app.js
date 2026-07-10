@@ -1498,18 +1498,68 @@
       const pill = document.createElement('button');
       pill.type = 'button';
       pill.className = 'forge-pill bench-pill';
-      pill.title = 'Remove from bench';
-      pill.innerHTML = `<span>${escapeHtml(c.t)}</span><span class="bench-x">✕</span>`;
-      pill.addEventListener('click', () => {
+      pill.dataset.bi = String(i);
+      pill.title = 'Drag to reorder';
+      pill.innerHTML = `<span>${escapeHtml(c.t)}</span><span class="bench-x" role="button" aria-label="Remove">✕</span>`;
+      pill.querySelector('.bench-x').addEventListener('click', (ev) => {
+        ev.stopPropagation();
         benchChunks.splice(i, 1);
         benchPersist();
         renderBench();
       });
+      pill.addEventListener('pointerdown', (e) => startBenchDrag(e, pill));
       el.benchPills.appendChild(pill);
     });
     el.benchKeepBtn.disabled = false;
     el.benchKeepBtn.classList.remove('kept');
     el.benchKeepBtn.textContent = '♡';
+  }
+
+  // Pointer-based drag reordering (works for touch and mouse alike).
+  // A press that never moves past the threshold is treated as a plain tap
+  // (which does nothing on the pill body — removal lives on the ✕).
+  function startBenchDrag(e, pill) {
+    if (e.target.classList.contains('bench-x')) return;
+    const startX = e.clientX, startY = e.clientY;
+    let active = false;
+    const move = (ev) => {
+      if (!active && Math.hypot(ev.clientX - startX, ev.clientY - startY) > 8) {
+        active = true;
+        pill.classList.add('dragging');
+        try { pill.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+      if (!active) return;
+      ev.preventDefault();
+      // Row-aware insertion: place before the first sibling whose row is below
+      // the pointer, or whose centre is to the right of it on the same row.
+      const siblings = [...el.benchPills.children].filter((p) => p !== pill);
+      let placed = false;
+      for (const s of siblings) {
+        const r = s.getBoundingClientRect();
+        if (ev.clientY < r.top - 2 ||
+            (ev.clientY <= r.bottom + 2 && ev.clientX < r.left + r.width / 2)) {
+          el.benchPills.insertBefore(pill, s);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) el.benchPills.appendChild(pill);
+    };
+    const up = () => {
+      pill.removeEventListener('pointermove', move);
+      pill.removeEventListener('pointerup', up);
+      pill.removeEventListener('pointercancel', up);
+      if (active) {
+        pill.classList.remove('dragging');
+        const order = [...el.benchPills.children].map((p) => +p.dataset.bi);
+        benchChunks = order.map((i) => benchChunks[i]);
+        benchPersist();
+        renderBench();
+      }
+    };
+    pill.addEventListener('pointermove', move);
+    pill.addEventListener('pointerup', up);
+    pill.addEventListener('pointercancel', up);
   }
 
   el.benchClearBtn.addEventListener('click', () => {
@@ -1631,7 +1681,7 @@
   }
 
   // ---------- Version (shown in the ... menu; must match sw.js CACHE) ----------
-  const APP_VERSION = 'v2.6';
+  const APP_VERSION = 'v2.7';
   const versionEl = $('app-version');
   if (versionEl) versionEl.textContent = 'Songsmith ' + APP_VERSION;
 
