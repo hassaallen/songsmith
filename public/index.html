@@ -125,6 +125,20 @@
           <button id="forge-reroll-btn" class="primary-btn" type="button">⟳ Re-roll</button>
           <button id="forge-deal-btn" class="icon-btn" type="button">Deal</button>
         </div>
+
+        <!-- Bench: locked words gather here across deals; build a line, send it on -->
+        <div class="glass forge-bench hidden" id="forge-bench">
+          <div class="forge-bench-head">
+            <span>Bench — words you've locked</span>
+            <button id="bench-clear-btn" type="button" title="Empty the bench">Clear</button>
+          </div>
+          <div id="bench-pills" class="forge-pills"></div>
+          <div class="forge-line-actions">
+            <button type="button" class="pill" id="bench-tosong-btn">→ Song</button>
+            <button type="button" class="icon-btn round" id="bench-keep-btn" title="Keep bench line" aria-label="Keep bench line">♡</button>
+            <span class="bench-hint muted">tap a word to remove it</span>
+          </div>
+        </div>
       </div>
     </section>
 

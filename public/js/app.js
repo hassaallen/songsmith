@@ -43,6 +43,8 @@
 
     forgeWordsPill: $('forge-words-pill'), forgeNotice: $('forge-notice'),
     forgeLineEls: [$('forge-line-0'), $('forge-line-1')],
+    forgeBench: $('forge-bench'), benchPills: $('bench-pills'),
+    benchClearBtn: $('bench-clear-btn'), benchTosongBtn: $('bench-tosong-btn'), benchKeepBtn: $('bench-keep-btn'),
     forgeLineCards: null, // filled in after el is built (querySelectorAll)
     forgeRerollBtn: $('forge-reroll-btn'), forgeDealBtn: $('forge-deal-btn'),
     forgePopover: $('forge-popover'),
@@ -1380,6 +1382,7 @@
   function ensureForgeReady() {
     if (forgeInitialized) return;
     forgeInitialized = true;
+    renderBench(); // restore any persisted harvest before the first deal
     fullForgeDeal();
   }
 
@@ -1461,10 +1464,72 @@
 
     pill.addEventListener('click', () => {
       if (longPressed) { longPressed = false; return; } // long-press already handled this interaction
-      forgeLines[lineIndex][pillIndex].locked = !forgeLines[lineIndex][pillIndex].locked;
+      const chunk = forgeLines[lineIndex][pillIndex];
+      chunk.locked = !chunk.locked;
+      if (chunk.locked) benchAdd(chunk); // locking harvests to the bench (unlocking keeps the harvest)
       renderForgeLine(lineIndex, forgeLines[lineIndex]);
     });
   }
+
+  // ---- Bench: locked words gather here, persisting across re-rolls and deals ----
+  let benchChunks = (() => {
+    try { return JSON.parse(localStorage.getItem('songsmith.forgebench')) || []; }
+    catch (_) { return []; }
+  })();
+
+  function benchPersist() {
+    try { localStorage.setItem('songsmith.forgebench', JSON.stringify(benchChunks)); } catch (_) {}
+  }
+
+  function benchAdd(chunk) {
+    const key = chunk.t.toLowerCase();
+    if (benchChunks.some((c) => c.t.toLowerCase() === key)) return;
+    benchChunks.push({ t: chunk.t, a: chunk.a });
+    benchPersist();
+    renderBench();
+  }
+
+  function benchText() { return benchChunks.map((c) => c.t).join(' '); }
+
+  function renderBench() {
+    el.forgeBench.classList.toggle('hidden', benchChunks.length === 0);
+    el.benchPills.innerHTML = '';
+    benchChunks.forEach((c, i) => {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'forge-pill bench-pill';
+      pill.title = 'Remove from bench';
+      pill.innerHTML = `<span>${escapeHtml(c.t)}</span><span class="bench-x">✕</span>`;
+      pill.addEventListener('click', () => {
+        benchChunks.splice(i, 1);
+        benchPersist();
+        renderBench();
+      });
+      el.benchPills.appendChild(pill);
+    });
+    el.benchKeepBtn.disabled = false;
+    el.benchKeepBtn.classList.remove('kept');
+    el.benchKeepBtn.textContent = '♡';
+  }
+
+  el.benchClearBtn.addEventListener('click', () => {
+    benchChunks = [];
+    benchPersist();
+    renderBench();
+  });
+  el.benchTosongBtn.addEventListener('click', () => {
+    if (!benchChunks.length) return;
+    insertFragment(benchText());
+    showView('write');
+  });
+  el.benchKeepBtn.addEventListener('click', async () => {
+    if (!benchChunks.length) return;
+    try {
+      await keepFragment(benchText(), 'forge bench');
+      el.benchKeepBtn.textContent = '♥';
+      el.benchKeepBtn.classList.add('kept');
+    } catch (_) {}
+  });
 
   // ---- long-press swap popover ----
   function openForgePopover(pillEl, lineIndex, pillIndex) {
@@ -1566,7 +1631,7 @@
   }
 
   // ---------- Version (shown in the ... menu; must match sw.js CACHE) ----------
-  const APP_VERSION = 'v2.5';
+  const APP_VERSION = 'v2.6';
   const versionEl = $('app-version');
   if (versionEl) versionEl.textContent = 'Songsmith ' + APP_VERSION;
 

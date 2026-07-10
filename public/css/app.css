@@ -354,16 +354,16 @@ input, textarea { background: rgba(255,255,255,0.06); }
 .placeholder-card p { margin: 0; font-size: 14px; }
 
 /* ---------- Forge ---------- */
-.forge-body { gap: 14px; }
-.forge-lines { display: flex; flex-direction: column; gap: 12px; }
+.forge-body { gap: 10px; }
+.forge-lines { display: flex; flex-direction: column; gap: 8px; }
 .forge-line-card {
-  border-radius: var(--radius-card); padding: 14px; display: flex; flex-direction: column; gap: 12px;
+  border-radius: var(--radius-card); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
 }
-.forge-pills { display: flex; flex-wrap: wrap; gap: 8px; min-height: 40px; }
+.forge-pills { display: flex; flex-wrap: wrap; gap: 6px; min-height: 36px; }
 .forge-pill {
   background: var(--card-bg); border: 1px solid var(--card-border); color: var(--ink);
-  border-radius: 10px; padding: 7px 12px; font-size: 15px; min-height: 40px; display: inline-flex; align-items: center;
-  gap: 6px; user-select: none; -webkit-user-select: none;
+  border-radius: 9px; padding: 5px 10px; font-size: 13px; min-height: 36px; display: inline-flex; align-items: center;
+  gap: 5px; user-select: none; -webkit-user-select: none;
 }
 .forge-pill:hover { border-color: var(--accent); }
 .forge-pill.locked {
@@ -376,6 +376,21 @@ input, textarea { background: rgba(255,255,255,0.06); }
 
 .forge-main-actions { display: flex; gap: 10px; justify-content: center; padding-top: 2px; }
 .forge-main-actions .primary-btn, .forge-main-actions .icon-btn { flex: 1; max-width: 220px; text-align: center; }
+
+/* ---------- Forge bench (harvested locked words) ---------- */
+.forge-bench { border-radius: var(--radius-card); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.forge-bench-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft);
+}
+.forge-bench-head button {
+  background: transparent; border: 1px solid var(--card-border); border-radius: var(--radius-pill);
+  color: var(--ink-soft); font-size: 11px; padding: 4px 10px;
+}
+.forge-bench-head button:hover { color: var(--ink); border-color: var(--accent); }
+.bench-pill .bench-x { font-size: 10px; opacity: 0.5; }
+.bench-pill:hover .bench-x { opacity: 1; color: var(--error); }
+.bench-hint { font-size: 10px; margin-left: auto; }
 
 .forge-popover {
   position: fixed; z-index: 70; border-radius: var(--radius-card); padding: 8px;
