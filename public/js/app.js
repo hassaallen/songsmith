@@ -1273,13 +1273,19 @@
   }
 
   // ---------- Version (shown in the ... menu; must match sw.js CACHE) ----------
-  const APP_VERSION = 'v2.3';
+  const APP_VERSION = 'v2.4';
   const versionEl = $('app-version');
   if (versionEl) versionEl.textContent = 'Songsmith ' + APP_VERSION;
 
   // ---------- Service worker ----------
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    window.addEventListener('load', () => {
+      // updateViaCache:'none' = always check sw.js against the network, and
+      // explicitly poke for updates on every load (some mobile browsers are lazy).
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+        .then((reg) => reg.update().catch(() => {}))
+        .catch(() => {});
+    });
     // When a freshly deployed SW takes control, reload once so the page runs the
     // new assets immediately (kills the "deployed but device shows old app" trap).
     let hadController = !!navigator.serviceWorker.controller;

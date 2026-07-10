@@ -1,12 +1,18 @@
 // Minimal service worker: caches the app shell so the UI loads offline.
 // API calls (api/*) are always network — never cached — so data stays fresh.
-const CACHE = 'songsmith-v12';
+const CACHE = 'songsmith-v13';
 const SHELL = [
   '.', 'index.html', 'css/app.css', 'js/api.js', 'js/app.js', 'manifest.webmanifest',
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache:'reload' bypasses the HTTP cache — a new SW version must never
+  // populate its cache with stale assets the browser was sitting on.
+  e.waitUntil(
+    caches.open(CACHE)
+      .then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (e) => {
