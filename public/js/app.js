@@ -864,6 +864,17 @@
     openSheet();
     wireToolsButtons(word);
     fillToolsData(word);
+    scrollWordIntoUpperView();
+  }
+
+  // On phones the sheet covers the lower half of the screen; bring the tapped
+  // word's line up to the top of the lyric pane so line and tools coexist.
+  function scrollWordIntoUpperView() {
+    if (!savedRange || !window.matchMedia('(max-width: 899px)').matches) return;
+    const r = savedRange.getBoundingClientRect();
+    const padR = el.scratchpad.getBoundingClientRect();
+    const target = el.scratchpad.scrollTop + (r.top - padR.top) - 12;
+    el.scratchpad.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
   }
 
   function renderToolsShell(word) {
@@ -1262,7 +1273,7 @@
   }
 
   // ---------- Version (shown in the ... menu; must match sw.js CACHE) ----------
-  const APP_VERSION = 'v2.2';
+  const APP_VERSION = 'v2.3';
   const versionEl = $('app-version');
   if (versionEl) versionEl.textContent = 'Songsmith ' + APP_VERSION;
 
