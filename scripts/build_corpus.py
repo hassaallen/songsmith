@@ -23,6 +23,9 @@ AUTHOR_TYPE = {
     'Charles Dickens': 'prose', 'F Scott Fitzgerald': 'prose', 'Marcus Clarke': 'prose',
     'Miles Franklin': 'prose', 'Thomas Hardy': 'prose', 'Tom Collins': 'prose',
     'Samuell Beckett': 'play', 'Brendan Behan': 'prose',
+    'Douglas Sladen': 'poem', 'Kuno Meyer': 'poem',
+    'Hywel Williams': 'prose',  # Great Speeches — rhetoric cuts like prose
+    'John Keats': 'letters',    # mixed life-and-letters volume (poems quoted within)
 }
 FN_RULES = [('letter', 'letters'), ('plays', 'play'), ('lyric', 'lyric')]
 
