@@ -370,12 +370,17 @@ input, textarea { background: rgba(255,255,255,0.06); }
   background: var(--pill-active-bg); border-color: var(--pill-active-border); font-weight: 500;
 }
 .forge-pill .forge-benched-ico { font-size: 11px; line-height: 1; opacity: 0.85; }
-.forge-line-actions { display: flex; align-items: center; gap: 8px; }
-.forge-tosong-btn { font-size: 13px; }
+/* Per-card actions are utilities, not page actions — keep them small and right-aligned
+   (the bench hint's auto margin still pushes the bench's buttons left) */
+.forge-line-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.forge-line-actions .pill { min-height: 26px; padding: 3px 10px; font-size: 11px; }
+.forge-line-actions .icon-btn.round { width: 26px; height: 26px; min-height: 0; font-size: 13px; }
 .forge-keep-btn.kept { color: var(--accent); border-color: var(--pill-active-border); background: var(--pill-active-bg); }
 
-.forge-main-actions { display: flex; gap: 10px; justify-content: center; padding-top: 2px; }
-.forge-main-actions .primary-btn, .forge-main-actions .icon-btn { flex: 1; max-width: 220px; text-align: center; }
+.forge-main-actions { display: flex; gap: 8px; justify-content: center; padding-top: 2px; }
+.forge-main-actions .primary-btn, .forge-main-actions .icon-btn {
+  flex: none; min-height: 32px; padding: 5px 20px; font-size: 13px; text-align: center;
+}
 
 /* ---------- Forge bench (harvested words) ---------- */
 .forge-bench { border-radius: var(--radius-card); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
