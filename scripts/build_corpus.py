@@ -26,13 +26,24 @@ AUTHOR_TYPE = {
     'Douglas Sladen': 'poem', 'Kuno Meyer': 'poem',
     'Hywel Williams': 'prose',  # Great Speeches — rhetoric cuts like prose
     'John Keats': 'letters',    # mixed life-and-letters volume (poems quoted within)
+    # 10 Jul intake
+    'Thomas Keneally': 'prose', 'Robert Hughes': 'prose',
+    'Bobby Braddock': 'prose',  # Country Music's Greatest Lines — stories around the lyrics
+    'Thomas Chatterton': 'poem',
+    'Henry Rollins': 'lyric', 'Robert Burns': 'lyric', 'Irish Pub Songs': 'lyric',
+    'Sixties Songbook': 'lyric', 'Noel Coward': 'lyric',
+    'Robert Gogan': 'lyric', 'James N Healy': 'lyric',
+    'Australian Bush Ballads': 'poem', 'Classic Australian Poetry': 'poem',
+    'Francis James Child': 'poem',
 }
 FN_RULES = [('letter', 'letters'), ('plays', 'play'), ('lyric', 'lyric')]
 
 # Files excluded pending better source versions (matched as lowercase substrings):
 #  - Yeats "Volume VIII" is prose/essays, not his poems
 #  - the Tom Waits file is badly OCR'd
-EXCLUDE = ['volume viii', 'early years the lyrics of tom waits']
+#  - Child V1 extraction is dominated by scholarly headnotes, not the ballads
+EXCLUDE = ['volume viii', 'early years the lyrics of tom waits',
+           'english and scottish popular ballads']
 
 def classify(author, fn):
     low = fn.lower()
@@ -91,7 +102,7 @@ def epub_text(path):
         except Exception:
             continue
         c = re.sub(r'<(script|style)[^>]*>.*?</\1>', '', c, flags=re.S)
-        c = re.sub(r'<br\s*/?>', '\n', c, flags=re.I)
+        c = re.sub(r'<br\b[^>]*/?>', '\n', c, flags=re.I)
         c = re.sub(r'</(p|div|h[1-6]|li|tr)>', '\n', c, flags=re.I)
         c = re.sub('<[^>]+>', '', c)
         out.append(html.unescape(c))
