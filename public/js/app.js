@@ -63,10 +63,10 @@
   let libManifest = null;
   let authorTypeMap = null;
 
-  // Browse vs edit mode. Touch devices default to browse (no keyboard, no native
-  // text-selection UI); fine-pointer (mouse) devices default to edit, preserving
-  // the previous desktop-first behaviour.
-  let editMode = window.matchMedia('(pointer: fine)').matches;
+  // Browse vs edit mode. Everyone starts in browse: pointer media queries lie on
+  // S Pen devices (Samsung phones/tablets report a fine pointer), which locked
+  // touch users into edit mode. Desktop users tap the FAB once to type.
+  let editMode = false;
 
   // ---------- Syllable gutter / rhyme colour state ----------
   let syllablesOn = readBool('songsmith.syllables', true);
@@ -1245,9 +1245,21 @@
     return m ? m.length : 1;
   }
 
+  // ---------- Version (shown in the ... menu; must match sw.js CACHE) ----------
+  const APP_VERSION = 'v2.1';
+  const versionEl = $('app-version');
+  if (versionEl) versionEl.textContent = 'Songsmith ' + APP_VERSION;
+
   // ---------- Service worker ----------
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    // When a freshly deployed SW takes control, reload once so the page runs the
+    // new assets immediately (kills the "deployed but device shows old app" trap).
+    let hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController) location.reload();
+      hadController = true;
+    });
   }
 
   // Save on exit
